@@ -64,7 +64,6 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: application-jar
-        path: target/
     
     - name: 📥 Descargar archivos deployment
       uses: actions/download-artifact@v4
@@ -81,9 +80,9 @@ jobs:
     - name: 📦 Crear paquete deployment
       run: |
         mkdir -p deploy
-        cp target/divtracker-be.jar deploy/
+        cp application-jar/divtracker-be.jar deploy/
         cp Procfile deploy/
-        cp -r .ebextensions deploy/
+        cp -r .ebextensions deploy/ 2>/dev/null || echo "No .ebextensions found"
         cd deploy
         zip -r ../divtracker-deployment.zip .
     
