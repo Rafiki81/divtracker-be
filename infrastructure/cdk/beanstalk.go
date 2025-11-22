@@ -83,34 +83,138 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 		subnetIds += *subnet.SubnetId()
 	}
 
-	// Build option settings
-	optionSettings := []interface{}{
-		buildOptionSetting("aws:elasticbeanstalk:environment", "EnvironmentType", "SingleInstance"),
-		buildOptionSetting("aws:elasticbeanstalk:environment", "ServiceRole", *serviceRole.RoleArn()),
-		buildOptionSetting("aws:autoscaling:launchconfiguration", "InstanceType", "t2.micro"),
-		buildOptionSetting("aws:autoscaling:launchconfiguration", "IamInstanceProfile", *instanceProfile.Ref()),
-		buildOptionSetting("aws:autoscaling:launchconfiguration", "SecurityGroups", *props.SecurityGroup.SecurityGroupId()),
-		buildOptionSetting("aws:ec2:vpc", "VPCId", *props.Vpc.VpcId()),
-		buildOptionSetting("aws:ec2:vpc", "Subnets", subnetIds),
-		buildOptionSetting("aws:ec2:vpc", "AssociatePublicIpAddress", "true"),
-		buildOptionSetting("aws:elasticbeanstalk:container:java:corretto", "Xmx", "512m"),
-		buildOptionSetting("aws:elasticbeanstalk:container:java:corretto", "Xms", "256m"),
-		buildOptionSetting("aws:elasticbeanstalk:application", "Application Healthcheck URL", "/actuator/health"),
-		buildOptionSetting("aws:elasticbeanstalk:healthreporting:system", "SystemType", "enhanced"),
-		buildOptionSetting("aws:elasticbeanstalk:cloudwatch:logs", "StreamLogs", "true"),
-		buildOptionSetting("aws:elasticbeanstalk:cloudwatch:logs", "DeleteOnTerminate", "false"),
-		buildOptionSetting("aws:elasticbeanstalk:cloudwatch:logs", "RetentionInDays", "7"),
-		buildOptionSetting("aws:elasticbeanstalk:application:environment", "SPRING_PROFILES_ACTIVE", "aws"),
-		buildOptionSetting("aws:elasticbeanstalk:application:environment", "RDS_HOSTNAME", *props.Database.DbInstanceEndpointAddress()),
-		buildOptionSetting("aws:elasticbeanstalk:application:environment", "RDS_PORT", *props.Database.DbInstanceEndpointPort()),
-		buildOptionSetting("aws:elasticbeanstalk:application:environment", "RDS_DB_NAME", "divtracker"),
-		buildOptionSetting("aws:elasticbeanstalk:application:environment", "RDS_USERNAME", "divtracker"),
-		buildOptionSetting("aws:elasticbeanstalk:application:environment", "DB_SECRET_ARN", *props.DbSecretArn),
-		buildOptionSetting("aws:elasticbeanstalk:application:environment", "JWT_SECRET", *props.JwtSecret),
-		buildOptionSetting("aws:elasticbeanstalk:application:environment", "FINNHUB_API_KEY", props.FinnhubApiKey),
-		buildOptionSetting("aws:elasticbeanstalk:application:environment", "GOOGLE_CLIENT_ID", props.GoogleClientId),
-		buildOptionSetting("aws:elasticbeanstalk:application:environment", "GOOGLE_CLIENT_SECRET", props.GoogleClientSecret),
-		buildOptionSetting("aws:elasticbeanstalk:application:environment", "APP_SECRETS_ARN", *props.AppSecretsArn),
+	// Build option settings using proper CDK structure
+	optionSettings := &[]interface{}{
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:environment"),
+			OptionName: jsii.String("EnvironmentType"),
+			Value:      jsii.String("SingleInstance"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:environment"),
+			OptionName: jsii.String("ServiceRole"),
+			Value:      serviceRole.RoleArn(),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:autoscaling:launchconfiguration"),
+			OptionName: jsii.String("InstanceType"),
+			Value:      jsii.String("t2.micro"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:autoscaling:launchconfiguration"),
+			OptionName: jsii.String("IamInstanceProfile"),
+			Value:      instanceProfile.Ref(),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:autoscaling:launchconfiguration"),
+			OptionName: jsii.String("SecurityGroups"),
+			Value:      props.SecurityGroup.SecurityGroupId(),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:ec2:vpc"),
+			OptionName: jsii.String("VPCId"),
+			Value:      props.Vpc.VpcId(),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:ec2:vpc"),
+			OptionName: jsii.String("Subnets"),
+			Value:      jsii.String(subnetIds),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:ec2:vpc"),
+			OptionName: jsii.String("AssociatePublicIpAddress"),
+			Value:      jsii.String("true"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:container:java:corretto"),
+			OptionName: jsii.String("Xmx"),
+			Value:      jsii.String("512m"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:container:java:corretto"),
+			OptionName: jsii.String("Xms"),
+			Value:      jsii.String("256m"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application"),
+			OptionName: jsii.String("Application Healthcheck URL"),
+			Value:      jsii.String("/actuator/health"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:healthreporting:system"),
+			OptionName: jsii.String("SystemType"),
+			Value:      jsii.String("enhanced"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:cloudwatch:logs"),
+			OptionName: jsii.String("StreamLogs"),
+			Value:      jsii.String("true"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:cloudwatch:logs"),
+			OptionName: jsii.String("DeleteOnTerminate"),
+			Value:      jsii.String("false"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:cloudwatch:logs"),
+			OptionName: jsii.String("RetentionInDays"),
+			Value:      jsii.String("7"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("SPRING_PROFILES_ACTIVE"),
+			Value:      jsii.String("aws"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("RDS_HOSTNAME"),
+			Value:      props.Database.DbInstanceEndpointAddress(),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("RDS_PORT"),
+			Value:      props.Database.DbInstanceEndpointPort(),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("RDS_DB_NAME"),
+			Value:      jsii.String("divtracker"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("RDS_USERNAME"),
+			Value:      jsii.String("divtracker"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("DB_SECRET_ARN"),
+			Value:      props.DbSecretArn,
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("JWT_SECRET"),
+			Value:      props.JwtSecret,
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("FINNHUB_API_KEY"),
+			Value:      jsii.String(props.FinnhubApiKey),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("GOOGLE_CLIENT_ID"),
+			Value:      jsii.String(props.GoogleClientId),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("GOOGLE_CLIENT_SECRET"),
+			Value:      jsii.String(props.GoogleClientSecret),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("APP_SECRETS_ARN"),
+			Value:      props.AppSecretsArn,
+		},
 	}
 
 	// Create Elastic Beanstalk environment
@@ -118,7 +222,7 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 		ApplicationName:   application.ApplicationName(),
 		EnvironmentName:   jsii.String("divtracker-prod"),
 		SolutionStackName: jsii.String("64bit Amazon Linux 2023 v4.3.4 running Corretto 17"),
-		OptionSettings:    &optionSettings,
+		OptionSettings:    optionSettings,
 	})
 
 	environment.AddDependency(application)
@@ -129,12 +233,4 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 		Description: jsii.String("Application URL"),
 		ExportName:  jsii.String("DivTrackerApplicationURL"),
 	})
-}
-
-func buildOptionSetting(namespace, optionName, value string) interface{} {
-	return map[string]*string{
-		"Namespace":  jsii.String(namespace),
-		"OptionName": jsii.String(optionName),
-		"Value":      jsii.String(value),
-	}
 }
