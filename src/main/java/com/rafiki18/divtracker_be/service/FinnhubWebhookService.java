@@ -29,12 +29,7 @@ public class FinnhubWebhookService {
             return false;
         }
 
-        boolean valid = webhookSecret.equals(receivedSecret);
-        if (!valid) {
-            log.warn("Invalid webhook secret received. Expected length: {}, Received length: {}, Expected: [{}], Received: [{}]", 
-                webhookSecret.length(), receivedSecret.length(), webhookSecret, receivedSecret);
-        }
-        return valid;
+        return webhookSecret.equals(receivedSecret);
     }
 
     public boolean isWebhookEnabled() {

@@ -105,11 +105,9 @@ public class FinnhubWebhookController {
             )
             @RequestBody String rawPayload) {
         
-        log.info("Received Finnhub webhook - Secret present: {}, Payload: {}", secret != null, rawPayload);
-
         // Verificar secret
         if (!webhookService.verifySecret(secret)) {
-            log.warn("Invalid Finnhub webhook secret received - Secret: {}", secret != null ? "present" : "missing");
+            log.warn("Invalid Finnhub webhook secret");
             return ResponseEntity.status(401).build();
         }
 
