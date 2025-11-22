@@ -1,0 +1,47 @@
+meta {
+  name: Login
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "test@ejemplo.com",
+    "password": "password123"
+  }
+}
+
+docs {
+  Iniciar sesión con un usuario existente.
+  
+  La respuesta incluye:
+  - Token JWT para autenticación
+  - Datos del usuario
+  
+  El token se guarda automáticamente en la variable authToken.
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response has token", function() {
+    expect(res.getBody().token).to.be.a('string');
+  });
+  
+  test("Token type is Bearer", function() {
+    expect(res.getBody().type).to.equal("Bearer");
+  });
+  
+  // Guardar el token automáticamente
+  if (res.getBody().token) {
+    bru.setVar("authToken", res.getBody().token);
+  }
+}

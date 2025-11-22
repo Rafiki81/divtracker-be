@@ -1,0 +1,53 @@
+meta {
+  name: Update Item
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/watchlist/{{itemId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+vars:pre-request {
+  itemId: replace-with-actual-id
+}
+
+body:json {
+  {
+    "targetPrice": 160.00,
+    "targetPfcf": 16.0,
+    "notes": "Actualizado después de earnings report",
+    "estimatedFcfGrowthRate": 0.10,
+    "investmentHorizonYears": 7,
+    "discountRate": 0.09
+  }
+}
+
+docs {
+  Actualiza parcialmente un item existente (PATCH/merge).
+  
+  Solo incluye los campos que deseas actualizar.
+  Los campos omitidos mantienen su valor actual.
+  
+  Recalcula automáticamente todas las métricas después de la actualización.
+  
+  Reemplaza {{itemId}} con el UUID del item que deseas actualizar.
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Item was updated", function() {
+    const body = res.getBody();
+    expect(body.id).to.be.a('string');
+    expect(body.updatedAt).to.exist;
+  });
+}

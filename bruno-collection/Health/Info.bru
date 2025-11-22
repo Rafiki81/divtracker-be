@@ -1,0 +1,27 @@
+meta {
+  name: Info
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/actuator/info
+  body: none
+  auth: none
+}
+
+docs {
+  Información sobre la aplicación.
+  
+  Puede incluir:
+  - Versión de la aplicación
+  - Información de build
+  - Git commit info
+  - Configuración personalizada
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

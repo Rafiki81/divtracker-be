@@ -1,0 +1,33 @@
+meta {
+  name: Delete Item
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/watchlist/{{itemId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+vars:pre-request {
+  itemId: replace-with-actual-id
+}
+
+docs {
+  Elimina un item del watchlist.
+  
+  Esta operación es permanente y no se puede deshacer.
+  
+  Reemplaza {{itemId}} con el UUID del item que deseas eliminar.
+}
+
+tests {
+  test("Status code is 204", function() {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

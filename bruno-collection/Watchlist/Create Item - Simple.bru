@@ -1,0 +1,55 @@
+meta {
+  name: Create Item - Simple
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/watchlist
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "ticker": "AAPL",
+    "exchange": "NASDAQ",
+    "targetPrice": 150.50,
+    "targetPfcf": 15.5,
+    "notifyWhenBelowPrice": false,
+    "notes": "Empresa tecnológica líder en innovación"
+  }
+}
+
+docs {
+  Crea un nuevo item en el watchlist con configuración básica.
+  
+  Solo requiere:
+  - ticker (obligatorio)
+  - targetPrice O targetPfcf (al menos uno)
+  
+  Calcula automáticamente:
+  - Precio justo por P/FCF
+  - Descuento/prima actual
+  - Desviación del precio objetivo
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response has created item", function() {
+    const body = res.getBody();
+    expect(body.id).to.be.a('string');
+    expect(body.ticker).to.equal("AAPL");
+  });
+  
+  test("Location header is present", function() {
+    expect(res.getHeader('Location')).to.exist;
+  });
+}

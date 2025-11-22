@@ -1,0 +1,27 @@
+meta {
+  name: Public Endpoint
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/test/public
+  body: none
+  auth: none
+}
+
+docs {
+  Endpoint público de prueba - No requiere autenticación.
+  
+  Útil para verificar que el servidor está funcionando.
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is string", function() {
+    expect(res.getBody()).to.be.a('string');
+  });
+}

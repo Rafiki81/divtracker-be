@@ -1,0 +1,32 @@
+meta {
+  name: Protected Endpoint
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/test/protected
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Endpoint protegido de prueba - Requiere autenticación JWT.
+  
+  Verifica que el token JWT funciona correctamente.
+  Primero debes hacer login para obtener el token.
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response contains user info", function() {
+    expect(res.getBody()).to.be.a('string');
+  });
+}

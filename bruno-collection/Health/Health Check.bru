@@ -1,0 +1,35 @@
+meta {
+  name: Health Check
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/actuator/health
+  body: none
+  auth: none
+}
+
+docs {
+  Health check endpoint para verificar el estado del servidor.
+  
+  Útil para:
+  - Monitoring
+  - Load balancers
+  - CI/CD pipelines
+  
+  Retorna el estado de:
+  - Aplicación
+  - Base de datos
+  - Otros componentes
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Status is UP", function() {
+    expect(res.getBody().status).to.equal("UP");
+  });
+}

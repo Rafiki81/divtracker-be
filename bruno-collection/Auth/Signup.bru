@@ -1,0 +1,45 @@
+meta {
+  name: Signup
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/auth/signup
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "test@ejemplo.com",
+    "password": "password123",
+    "firstName": "Juan",
+    "lastName": "Pérez"
+  }
+}
+
+docs {
+  Registrar un nuevo usuario en el sistema.
+  
+  La respuesta incluye:
+  - Token JWT para autenticación
+  - Datos del usuario creado
+  
+  Copiar el token de la respuesta para usarlo en otros endpoints.
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response has token", function() {
+    expect(res.getBody().token).to.be.a('string');
+  });
+  
+  // Guardar el token automáticamente
+  if (res.getBody().token) {
+    bru.setVar("authToken", res.getBody().token);
+  }
+}

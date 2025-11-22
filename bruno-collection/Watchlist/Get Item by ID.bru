@@ -1,0 +1,43 @@
+meta {
+  name: Get Item by ID
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/watchlist/{{itemId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+vars:pre-request {
+  itemId: replace-with-actual-id
+}
+
+docs {
+  Obtiene los detalles completos de un item específico del watchlist.
+  
+  Incluye:
+  - Precio actual de mercado
+  - Todas las métricas de valoración calculadas
+  - Parámetros de análisis configurados
+  
+  Reemplaza {{itemId}} con el UUID del item que deseas consultar.
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response has required fields", function() {
+    const body = res.getBody();
+    expect(body.id).to.be.a('string');
+    expect(body.ticker).to.be.a('string');
+    expect(body.currentPrice).to.exist;
+  });
+}

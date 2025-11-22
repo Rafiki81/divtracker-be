@@ -1,0 +1,62 @@
+meta {
+  name: Create Item - Advanced
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/watchlist
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "ticker": "MSFT",
+    "exchange": "NASDAQ",
+    "targetPrice": 350.00,
+    "targetPfcf": 18.0,
+    "notifyWhenBelowPrice": true,
+    "notes": "Empresa de software con crecimiento en cloud",
+    "estimatedFcfGrowthRate": 0.12,
+    "investmentHorizonYears": 5,
+    "discountRate": 0.10
+  }
+}
+
+docs {
+  Crea un nuevo item con análisis financiero avanzado.
+  
+  Parámetros adicionales opcionales:
+  - estimatedFcfGrowthRate: Tasa de crecimiento anual del FCF (0.08 = 8%)
+  - investmentHorizonYears: Horizonte de inversión en años (1-30)
+  - discountRate: Tasa de descuento / WACC (0.10 = 10%)
+  
+  Calcula automáticamente todas las métricas:
+  - DCF Fair Value (valor intrínseco)
+  - FCF Yield (rendimiento)
+  - Margin of Safety (margen de seguridad)
+  - Payback Period (periodo de recuperación)
+  - Estimated ROI (retorno esperado)
+  - Estimated IRR (TIR)
+}
+
+tests {
+  test("Status code is 201", function() {
+    expect(res.getStatus()).to.equal(201);
+  });
+  
+  test("Response has advanced metrics", function() {
+    const body = res.getBody();
+    expect(body.dcfFairValue).to.exist;
+    expect(body.fcfYield).to.exist;
+    expect(body.marginOfSafety).to.exist;
+    expect(body.paybackPeriod).to.exist;
+    expect(body.estimatedROI).to.exist;
+    expect(body.estimatedIRR).to.exist;
+  });
+}
