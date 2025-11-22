@@ -4,8 +4,13 @@
 
 Una vez que la aplicación esté ejecutándose, puedes acceder a la documentación interactiva de la API en:
 
+### Desarrollo Local
 - **Swagger UI**: http://localhost:8080/swagger-ui.html
 - **OpenAPI JSON**: http://localhost:8080/v3/api-docs
+
+### AWS (Producción)
+- **Swagger UI**: http://divtracker-prod.eba-rghuxgtw.eu-west-1.elasticbeanstalk.com/swagger-ui.html
+- **OpenAPI JSON**: http://divtracker-prod.eba-rghuxgtw.eu-west-1.elasticbeanstalk.com/v3/api-docs
 
 ## Características
 
@@ -142,8 +147,8 @@ X-Finnhub-Secret: d4gubhhr01qgvvc57cf0
 
 **Configuración:**
 1. Dashboard de Finnhub → Webhooks
-2. URL: `https://tu-app.elasticbeanstalk.com/api/webhooks/finnhub`
-3. Secret: El configurado en `FINNHUB_WEBHOOK_SECRET`
+2. URL: `http://divtracker-prod.eba-rghuxgtw.eu-west-1.elasticbeanstalk.com/api/webhooks/finnhub`
+3. Secret: `d4gubhhr01qgvvc57cf0`
 
 **Funcionamiento:**
 - Finnhub envía POST con eventos de trades
