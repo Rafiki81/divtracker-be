@@ -31,7 +31,8 @@ public class FinnhubWebhookService {
 
         boolean valid = webhookSecret.equals(receivedSecret);
         if (!valid) {
-            log.warn("Invalid webhook secret received");
+            log.warn("Invalid webhook secret received. Expected length: {}, Received length: {}, Expected: [{}], Received: [{}]", 
+                webhookSecret.length(), receivedSecret.length(), webhookSecret, receivedSecret);
         }
         return valid;
     }
