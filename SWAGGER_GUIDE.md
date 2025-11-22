@@ -119,6 +119,45 @@ La respuesta de cada item del watchlist incluye:
 - **estimatedROI**: Retorno de inversión esperado al horizonte configurado
 - **estimatedIRR**: Tasa Interna de Retorno anual esperada
 
+### 🔔 Webhooks de Finnhub
+
+El endpoint de webhooks recibe actualizaciones de precios en tiempo real:
+
+```json
+POST /api/webhooks/finnhub
+X-Finnhub-Secret: d4gubhhr01qgvvc57cf0
+
+{
+  "event": "trade",
+  "data": [
+    {
+      "s": "AAPL",
+      "p": 172.15,
+      "t": 1732285432000,
+      "v": 1000
+    }
+  ]
+}
+```
+
+**Configuración:**
+1. Dashboard de Finnhub → Webhooks
+2. URL: `https://tu-app.elasticbeanstalk.com/api/webhooks/finnhub`
+3. Secret: El configurado en `FINNHUB_WEBHOOK_SECRET`
+
+**Funcionamiento:**
+- Finnhub envía POST con eventos de trades
+- Se verifica el header `X-Finnhub-Secret`
+- Los precios se guardan en `market_price_ticks`
+- Responde 200 OK para confirmar recepción
+
+#### Webhooks
+
+- **POST /api/webhooks/finnhub** - Recibir notificaciones de trades desde Finnhub
+  - Header: `X-Finnhub-Secret` (autenticación)
+  - Body: Eventos de trades en tiempo real
+  - **Nota**: Normalmente llamado por Finnhub, no por clientes
+
 #### Testing
 
 - **GET /api/test/public** - Endpoint público (no requiere autenticación)

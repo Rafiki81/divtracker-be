@@ -1,0 +1,68 @@
+meta {
+  name: Finnhub Webhook (Test)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/webhooks/finnhub
+  body: json
+  auth: none
+}
+
+headers {
+  X-Finnhub-Secret: d4gubhhr01qgvvc57cf0
+}
+
+body:json {
+  {
+    "event": "trade",
+    "data": [
+      {
+        "s": "AAPL",
+        "p": 172.15,
+        "t": 1732285432000,
+        "v": 1000
+      },
+      {
+        "s": "MSFT",
+        "p": 378.50,
+        "t": 1732285433000,
+        "v": 500
+      }
+    ]
+  }
+}
+
+docs {
+  Simula un webhook de Finnhub enviando eventos de trades.
+  
+  **IMPORTANTE**: Este endpoint normalmente es llamado por Finnhub, no por clientes.
+  Esta request es solo para testing local.
+  
+  Payload:
+  - event: Tipo de evento ("trade")
+  - data: Array de trades
+    - s: Symbol (ticker)
+    - p: Price (precio)
+    - t: Timestamp (Unix milliseconds)
+    - v: Volume (volumen)
+  
+  Header requerido:
+  - X-Finnhub-Secret: Secret configurado en Finnhub dashboard
+  
+  Configuración en Finnhub:
+  1. Dashboard → Webhooks
+  2. URL: https://tu-app.elasticbeanstalk.com/api/webhooks/finnhub
+  3. Secret: d4gubhhr01qgvvc57cf0
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is empty", function() {
+    expect(res.getBody()).to.equal("");
+  });
+}

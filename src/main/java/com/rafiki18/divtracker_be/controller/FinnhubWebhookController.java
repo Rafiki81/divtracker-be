@@ -16,6 +16,14 @@ import com.rafiki18.divtracker_be.model.MarketPriceTick;
 import com.rafiki18.divtracker_be.repository.MarketPriceTickRepository;
 import com.rafiki18.divtracker_be.service.FinnhubWebhookService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -23,14 +31,74 @@ import lombok.extern.slf4j.Slf4j;
 @RequestMapping("/api/webhooks/finnhub")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Webhooks", description = "Endpoints para recibir notificaciones externas")
 public class FinnhubWebhookController {
 
     private final FinnhubWebhookService webhookService;
     private final MarketPriceTickRepository marketPriceTickRepository;
 
+    @Operation(
+        summary = "Webhook de Finnhub para actualizaciones de precios",
+        description = "Endpoint público para recibir notificaciones de trades en tiempo real desde Finnhub. " +
+                "Finnhub envía eventos de tipo 'trade' con los últimos precios de las acciones suscritas. " +
+                "Requiere el header X-Finnhub-Secret para autenticación. " +
+                "Los precios recibidos se guardan en la tabla market_price_ticks para histórico y análisis."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Webhook procesado exitosamente",
+            content = @Content(mediaType = "application/json")
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Secret inválido o ausente",
+            content = @Content(mediaType = "application/json")
+        ),
+        @ApiResponse(
+            responseCode = "500",
+            description = "Error procesando el webhook",
+            content = @Content(mediaType = "application/json")
+        )
+    })
     @PostMapping
     public ResponseEntity<Void> handleWebhook(
+            @Parameter(
+                description = "Secret de autenticación de Finnhub (configurado en su dashboard)",
+                example = "d4gubhhr01qgvvc57cf0",
+                required = true
+            )
             @RequestHeader(value = "X-Finnhub-Secret", required = false) String secret,
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                description = "Payload del webhook de Finnhub con eventos de trades",
+                required = true,
+                content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = Map.class),
+                    examples = @ExampleObject(
+                        name = "Trade Event",
+                        value = """
+                        {
+                          "event": "trade",
+                          "data": [
+                            {
+                              "s": "AAPL",
+                              "p": 172.15,
+                              "t": 1732285432000,
+                              "v": 1000
+                            },
+                            {
+                              "s": "MSFT",
+                              "p": 378.50,
+                              "t": 1732285433000,
+                              "v": 500
+                            }
+                          ]
+                        }
+                        """
+                    )
+                )
+            )
             @RequestBody Map<String, Object> payload) {
         
         log.debug("Received Finnhub webhook: {}", payload);
