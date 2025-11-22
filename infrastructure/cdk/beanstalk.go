@@ -14,17 +14,18 @@ import (
 )
 
 type ElasticBeanstalkConstructProps struct {
-	Vpc                awsec2.Vpc
-	PublicSubnets      *[]awsec2.ISubnet
-	SecurityGroup      awsec2.SecurityGroup
-	Database           awsrds.DatabaseInstance
-	DatabaseSecret     awssecretsmanager.ISecret
-	AppSecretsArn      *string
-	DbSecretArn        *string
-	JwtSecret          *string
-	FinnhubApiKey      string
-	GoogleClientId     string
-	GoogleClientSecret string
+	Vpc                  awsec2.Vpc
+	PublicSubnets        *[]awsec2.ISubnet
+	SecurityGroup        awsec2.SecurityGroup
+	Database             awsrds.DatabaseInstance
+	DatabaseSecret       awssecretsmanager.ISecret
+	AppSecretsArn        *string
+	DbSecretArn          *string
+	JwtSecret            *string
+	FinnhubApiKey        string
+	FinnhubWebhookSecret string
+	GoogleClientId       string
+	GoogleClientSecret   string
 }
 
 // Creates EB application and environment with proper IAM roles
@@ -206,6 +207,11 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
 			OptionName: jsii.String("FINNHUB_API_KEY"),
 			Value:      jsii.String(props.FinnhubApiKey),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("FINNHUB_WEBHOOK_SECRET"),
+			Value:      jsii.String(props.FinnhubWebhookSecret),
 		},
 		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
 			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),

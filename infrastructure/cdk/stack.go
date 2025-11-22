@@ -33,17 +33,18 @@ func NewDivTrackerStack(scope constructs.Construct, id string, props *DivTracker
 
 	// Create Elastic Beanstalk application
 	NewElasticBeanstalkConstruct(stack, "Beanstalk", &ElasticBeanstalkConstructProps{
-		Vpc:                vpc.Vpc,
-		PublicSubnets:      vpc.PublicSubnets,
-		SecurityGroup:      vpc.AppSecurityGroup,
-		Database:           database.DbInstance,
-		DatabaseSecret:     database.DatabaseSecret,
-		AppSecretsArn:      secrets.AppSecretsArn,
-		DbSecretArn:        database.DatabaseSecret.SecretArn(),
-		JwtSecret:          secrets.JwtSecret,
-		FinnhubApiKey:      secrets.FinnhubApiKey,
-		GoogleClientId:     secrets.GoogleClientId,
-		GoogleClientSecret: secrets.GoogleClientSecret,
+		Vpc:                  vpc.Vpc,
+		PublicSubnets:        vpc.PublicSubnets,
+		SecurityGroup:        vpc.AppSecurityGroup,
+		Database:             database.DbInstance,
+		DatabaseSecret:       database.DatabaseSecret,
+		AppSecretsArn:        secrets.AppSecretsArn,
+		DbSecretArn:          database.DatabaseSecret.SecretArn(),
+		JwtSecret:            secrets.JwtSecret,
+		FinnhubApiKey:        secrets.FinnhubApiKey,
+		FinnhubWebhookSecret: secrets.FinnhubWebhookSecret,
+		GoogleClientId:       secrets.GoogleClientId,
+		GoogleClientSecret:   secrets.GoogleClientSecret,
 	})
 
 	return stack

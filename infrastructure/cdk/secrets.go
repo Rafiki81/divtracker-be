@@ -15,11 +15,12 @@ type SecretsConstructProps struct {
 }
 
 type SecretsConstruct struct {
-	AppSecretsArn      *string
-	JwtSecret          *string
-	FinnhubApiKey      string
-	GoogleClientId     string
-	GoogleClientSecret string
+	AppSecretsArn        *string
+	JwtSecret            *string
+	FinnhubApiKey        string
+	FinnhubWebhookSecret string
+	GoogleClientId       string
+	GoogleClientSecret   string
 }
 
 // Manages application secrets in AWS Secrets Manager
@@ -89,10 +90,11 @@ func NewSecretsConstruct(scope constructs.Construct, id string, props *SecretsCo
 	})
 
 	return &SecretsConstruct{
-		AppSecretsArn:      appSecrets.SecretArn(),
-		JwtSecret:          jwtSecretGen.SecretValueFromJson(jsii.String("secret")).UnsafeUnwrap(),
-		FinnhubApiKey:      finnhubApiKey,
-		GoogleClientId:     googleClientId,
-		GoogleClientSecret: googleClientSecret,
+		AppSecretsArn:        appSecrets.SecretArn(),
+		JwtSecret:            jwtSecretGen.SecretValueFromJson(jsii.String("secret")).UnsafeUnwrap(),
+		FinnhubApiKey:        finnhubApiKey,
+		FinnhubWebhookSecret: finnhubWebhookSecret,
+		GoogleClientId:       googleClientId,
+		GoogleClientSecret:   googleClientSecret,
 	}
 }
