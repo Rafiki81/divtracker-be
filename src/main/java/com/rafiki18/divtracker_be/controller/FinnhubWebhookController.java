@@ -101,20 +101,21 @@ public class FinnhubWebhookController {
             )
             @RequestBody Map<String, Object> payload) {
         
-        log.debug("Received Finnhub webhook: {}", payload);
+        log.info("Received Finnhub webhook - Secret present: {}, Payload: {}", secret != null, payload);
 
         // Verificar secret
         if (!webhookService.verifySecret(secret)) {
-            log.warn("Invalid Finnhub webhook secret received");
+            log.warn("Invalid Finnhub webhook secret received - Secret: {}", secret != null ? "present" : "missing");
             return ResponseEntity.status(401).build();
         }
 
         try {
             // Procesar el webhook
             processWebhookPayload(payload);
+            log.info("Finnhub webhook processed successfully");
             return ResponseEntity.ok().build();
         } catch (Exception e) {
-            log.error("Error processing Finnhub webhook", e);
+            log.error("Error processing Finnhub webhook: {}", e.getMessage(), e);
             return ResponseEntity.status(500).build();
         }
     }
