@@ -221,7 +221,7 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 	environment := awselasticbeanstalk.NewCfnEnvironment(scope, jsii.String(id+"Environment"), &awselasticbeanstalk.CfnEnvironmentProps{
 		ApplicationName:   application.ApplicationName(),
 		EnvironmentName:   jsii.String("divtracker-prod"),
-		SolutionStackName: jsii.String("64bit Amazon Linux 2023 v4.3.4 running Corretto 17"),
+		SolutionStackName: jsii.String("64bit Amazon Linux 2023 v4.8.0 running Corretto 17"),
 		OptionSettings:    optionSettings,
 	})
 
