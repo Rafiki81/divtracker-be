@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -101,7 +102,7 @@ public class FinnhubWebhookController {
             )
             @RequestBody Map<String, Object> payload) {
         
-        log.info("Received Finnhub webhook - Secret present: {}, Payload: {}", secret != null, payload);
+        log.info("Received Finnhub webhook - Secret present: {}, Payload size: {}", secret != null, payload.size());
 
         // Verificar secret
         if (!webhookService.verifySecret(secret)) {
@@ -109,14 +110,25 @@ public class FinnhubWebhookController {
             return ResponseEntity.status(401).build();
         }
 
+        // Responder inmediatamente con 200 para evitar timeouts de Finnhub
+        // Procesar el webhook de forma asíncrona
+        processWebhookPayloadAsync(payload);
+        
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Procesa el webhook de forma asíncrona para responder rápidamente a Finnhub
+     * y evitar timeouts según su documentación.
+     */
+    @Async
+    @SuppressWarnings("unchecked")
+    public void processWebhookPayloadAsync(Map<String, Object> payload) {
         try {
-            // Procesar el webhook
             processWebhookPayload(payload);
             log.info("Finnhub webhook processed successfully");
-            return ResponseEntity.ok().build();
         } catch (Exception e) {
-            log.error("Error processing Finnhub webhook: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).build();
+            log.error("Error processing Finnhub webhook asynchronously: {}", e.getMessage(), e);
         }
     }
 
