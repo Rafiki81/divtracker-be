@@ -79,8 +79,11 @@ jobs:
     
     - name: 📦 Crear paquete deployment
       run: |
+        ls -la
+        echo "Listando artifacts descargados:"
+        find . -name "*.jar" -type f
         mkdir -p deploy
-        cp application-jar/divtracker-be.jar deploy/
+        cp divtracker-be.jar deploy/ || cp application-jar/divtracker-be.jar deploy/ || find . -name "divtracker-be.jar" -exec cp {} deploy/ \;
         cp Procfile deploy/
         cp -r .ebextensions deploy/ 2>/dev/null || echo "No .ebextensions found"
         cd deploy
