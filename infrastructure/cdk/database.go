@@ -22,11 +22,15 @@ type DatabaseConstruct struct {
 // Creates RDS PostgreSQL instance with automated backups and encryption
 func NewDatabaseConstruct(scope constructs.Construct, id string, props *DatabaseConstructProps) *DatabaseConstruct {
 
+	// Create credentials with specific username
+	credentials := awsrds.Credentials_FromGeneratedSecret(jsii.String("divtracker"), &awsrds.CredentialsBaseOptions{})
+
 	// Create PostgreSQL database instance
 	dbInstance := awsrds.NewDatabaseInstance(scope, jsii.String(id+"Instance"), &awsrds.DatabaseInstanceProps{
 		Engine: awsrds.DatabaseInstanceEngine_Postgres(&awsrds.PostgresInstanceEngineProps{
 			Version: awsrds.PostgresEngineVersion_VER_15(),
 		}),
+		Credentials:  credentials,
 		InstanceType: awsec2.InstanceType_Of(awsec2.InstanceClass_BURSTABLE3, awsec2.InstanceSize_MICRO),
 		Vpc:          props.Vpc,
 		VpcSubnets: &awsec2.SubnetSelection{
