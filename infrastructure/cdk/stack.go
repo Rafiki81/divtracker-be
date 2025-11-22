@@ -37,6 +37,7 @@ func NewDivTrackerStack(scope constructs.Construct, id string, props *DivTracker
 		PublicSubnets:      vpc.PublicSubnets,
 		SecurityGroup:      vpc.AppSecurityGroup,
 		Database:           database.DbInstance,
+		DatabaseSecret:     database.DatabaseSecret,
 		AppSecretsArn:      secrets.AppSecretsArn,
 		DbSecretArn:        database.DatabaseSecret.SecretArn(),
 		JwtSecret:          secrets.JwtSecret,

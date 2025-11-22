@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-cdk-go/awscdk/v2/awselasticbeanstalk"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsiam"
 	"github.com/aws/aws-cdk-go/awscdk/v2/awsrds"
+	"github.com/aws/aws-cdk-go/awscdk/v2/awssecretsmanager"
 	"github.com/aws/constructs-go/constructs/v10"
 	"github.com/aws/jsii-runtime-go"
 )
@@ -17,6 +18,7 @@ type ElasticBeanstalkConstructProps struct {
 	PublicSubnets      *[]awsec2.ISubnet
 	SecurityGroup      awsec2.SecurityGroup
 	Database           awsrds.DatabaseInstance
+	DatabaseSecret     awssecretsmanager.ISecret
 	AppSecretsArn      *string
 	DbSecretArn        *string
 	JwtSecret          *string
@@ -184,6 +186,11 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
 			OptionName: jsii.String("RDS_USERNAME"),
 			Value:      jsii.String("divtracker"),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("DB_PASSWORD"),
+			Value:      props.DatabaseSecret.SecretValueFromJson(jsii.String("password")).UnsafeUnwrap(),
 		},
 		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
 			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
