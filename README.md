@@ -537,12 +537,12 @@ Este proyecto está bajo la Licencia MIT. Ver archivo [LICENSE](LICENSE) para m�
 
 ## 👤 Autor
 
-**Rafael Pérez Beato**
+**Rafael Perez-Beato Santamaria**
 
-- 🎓 Proyecto Final - CFGS Desarrollo de Aplicaciones Web
-- 📧 Email: rafael.perez@ejemplo.com
-- 🔗 LinkedIn: [Rafael Pérez](https://linkedin.com/in/rafael-perez)
-- 💻 GitHub: [@rafiki18](https://github.com/rafiki18)
+- 🎓 Proyecto Final - CFGS Desarrollo de Aplicaciones multiplataforma
+- 📧 Email: rperezbeato@gmail.com
+- 🔗 LinkedIn: [Rafael Perez-Beato Santamaria](www.linkedin.com/in/rafael-p-a528031ab)
+- 💻 GitHub: [@rafiki81](https://github.com/Rafiki81)
 
 ---
 
