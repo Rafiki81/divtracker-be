@@ -44,16 +44,22 @@ jobs:
       working-directory: infrastructure/cdk
       env:
         FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        FINNHUB_WEBHOOK_SECRET: ${{ secrets.FINNHUB_WEBHOOK_SECRET }}
         GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
       run: cdk synth
     
     - name: 🏗️ Desplegar Infraestructura
       working-directory: infrastructure/cdk
       env:
         FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        FINNHUB_WEBHOOK_SECRET: ${{ secrets.FINNHUB_WEBHOOK_SECRET }}
         GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        JWT_SECRET: ${{ secrets.JWT_SECRET }}
       run: cdk deploy --require-approval never
     
     - name: 📊 Obtener Outputs

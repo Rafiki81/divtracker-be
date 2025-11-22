@@ -42,6 +42,12 @@ func NewSecretsConstruct(scope constructs.Construct, id string, props *SecretsCo
 		fmt.Println("⚠️  WARNING: FINNHUB_API_KEY not set. Using placeholder.")
 	}
 
+	finnhubWebhookSecret := os.Getenv("FINNHUB_WEBHOOK_SECRET")
+	if finnhubWebhookSecret == "" {
+		finnhubWebhookSecret = "your-webhook-secret-here"
+		fmt.Println("⚠️  WARNING: FINNHUB_WEBHOOK_SECRET not set. Using placeholder.")
+	}
+
 	googleClientId := os.Getenv("GOOGLE_CLIENT_ID")
 	if googleClientId == "" {
 		googleClientId = ""
@@ -52,16 +58,24 @@ func NewSecretsConstruct(scope constructs.Construct, id string, props *SecretsCo
 		googleClientSecret = ""
 	}
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		// If not provided, use the auto-generated one
+		jwtSecret = *jwtSecretGen.SecretValueFromJson(jsii.String("secret")).UnsafeUnwrap()
+	}
+
 	// Build secrets JSON
 	secretsJson := fmt.Sprintf(`{
 		"JWT_SECRET": "%s",
 		"FINNHUB_API_KEY": "%s",
+		"FINNHUB_WEBHOOK_SECRET": "%s",
 		"GOOGLE_CLIENT_ID": "%s",
 		"GOOGLE_CLIENT_SECRET": "%s",
 		"DB_SECRET_ARN": "%s"
 	}`,
-		*jwtSecretGen.SecretValueFromJson(jsii.String("secret")).UnsafeUnwrap(),
+		jwtSecret,
 		finnhubApiKey,
+		finnhubWebhookSecret,
 		googleClientId,
 		googleClientSecret,
 		*props.DatabaseSecret.SecretArn(),
