@@ -65,6 +65,6 @@ jobs:
         echo "### 🎉 Infraestructura Desplegada" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         aws cloudformation describe-stacks \
-          --stack-name DivtrackerStack \
+          --stack-name divtracker-prod \
           --query 'Stacks[0].Outputs' \
-          --output table >> $GITHUB_STEP_SUMMARY
+          --output table >> $GITHUB_STEP_SUMMARY || echo "No hay outputs disponibles"
