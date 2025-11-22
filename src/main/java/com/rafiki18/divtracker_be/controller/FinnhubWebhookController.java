@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rafiki18.divtracker_be.model.MarketPriceTick;
 import com.rafiki18.divtracker_be.repository.MarketPriceTickRepository;
 import com.rafiki18.divtracker_be.service.FinnhubWebhookService;
@@ -37,6 +39,7 @@ public class FinnhubWebhookController {
 
     private final FinnhubWebhookService webhookService;
     private final MarketPriceTickRepository marketPriceTickRepository;
+    private final ObjectMapper objectMapper;
 
     @Operation(
         summary = "Webhook de Finnhub para actualizaciones de precios",
@@ -100,9 +103,9 @@ public class FinnhubWebhookController {
                     )
                 )
             )
-            @RequestBody Map<String, Object> payload) {
+            @RequestBody String rawPayload) {
         
-        log.info("Received Finnhub webhook - Secret present: {}, Payload size: {}", secret != null, payload.size());
+        log.info("Received Finnhub webhook - Secret present: {}, Payload: {}", secret != null, rawPayload);
 
         // Verificar secret
         if (!webhookService.verifySecret(secret)) {
@@ -110,11 +113,19 @@ public class FinnhubWebhookController {
             return ResponseEntity.status(401).build();
         }
 
-        // Responder inmediatamente con 200 para evitar timeouts de Finnhub
-        // Procesar el webhook de forma asíncrona
-        processWebhookPayloadAsync(payload);
-        
-        return ResponseEntity.ok().build();
+        try {
+            // Parsear el payload JSON manualmente (Finnhub no envía Content-Type header)
+            Map<String, Object> payload = objectMapper.readValue(rawPayload, new TypeReference<Map<String, Object>>() {});
+            
+            // Responder inmediatamente con 200 para evitar timeouts de Finnhub
+            // Procesar el webhook de forma asíncrona
+            processWebhookPayloadAsync(payload);
+            
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            log.error("Error parsing Finnhub webhook payload: {}", e.getMessage(), e);
+            return ResponseEntity.status(400).build();
+        }
     }
 
     /**
