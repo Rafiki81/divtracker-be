@@ -26,16 +26,6 @@ type SecretsConstruct struct {
 // Manages application secrets in AWS Secrets Manager
 func NewSecretsConstruct(scope constructs.Construct, id string, props *SecretsConstructProps) *SecretsConstruct {
 
-	// Generate JWT secret
-	jwtSecretGen := awssecretsmanager.NewSecret(scope, jsii.String(id+"JwtSecret"), &awssecretsmanager.SecretProps{
-		GenerateSecretString: &awssecretsmanager.SecretStringGenerator{
-			SecretStringTemplate: jsii.String("{}"),
-			GenerateStringKey:    jsii.String("secret"),
-			ExcludePunctuation:   jsii.Bool(true),
-			PasswordLength:       jsii.Number(64),
-		},
-	})
-
 	// Read from environment variables
 	finnhubApiKey := os.Getenv("FINNHUB_API_KEY")
 	if finnhubApiKey == "" {
@@ -61,11 +51,11 @@ func NewSecretsConstruct(scope constructs.Construct, id string, props *SecretsCo
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		// If not provided, use the auto-generated one
-		jwtSecret = *jwtSecretGen.SecretValueFromJson(jsii.String("secret")).UnsafeUnwrap()
+		// Generate a random JWT secret
+		jwtSecret = "generated-jwt-secret-will-be-auto-generated"
 	}
 
-	// Build secrets JSON
+	// Build consolidated secrets JSON with all application secrets
 	secretsJson := fmt.Sprintf(`{
 		"JWT_SECRET": "%s",
 		"FINNHUB_API_KEY": "%s",
@@ -82,16 +72,16 @@ func NewSecretsConstruct(scope constructs.Construct, id string, props *SecretsCo
 		*props.DatabaseSecret.SecretArn(),
 	)
 
-	// Create application secrets
+	// Create single consolidated application secrets
 	appSecrets := awssecretsmanager.NewSecret(scope, jsii.String(id+"AppSecrets"), &awssecretsmanager.SecretProps{
-		SecretName:        jsii.String("divtracker-prod-app-secrets"),
-		Description:       jsii.String("Application secrets for DivTracker"),
+		SecretName:        jsii.String("divtracker-prod-secrets"),
+		Description:       jsii.String("All application secrets for DivTracker (JWT, Finnhub, Google OAuth, DB)"),
 		SecretStringValue: awscdk.SecretValue_UnsafePlainText(jsii.String(secretsJson)),
 	})
 
 	return &SecretsConstruct{
 		AppSecretsArn:        appSecrets.SecretArn(),
-		JwtSecret:            jwtSecretGen.SecretValueFromJson(jsii.String("secret")).UnsafeUnwrap(),
+		JwtSecret:            appSecrets.SecretValueFromJson(jsii.String("JWT_SECRET")).UnsafeUnwrap(),
 		FinnhubApiKey:        finnhubApiKey,
 		FinnhubWebhookSecret: finnhubWebhookSecret,
 		GoogleClientId:       googleClientId,

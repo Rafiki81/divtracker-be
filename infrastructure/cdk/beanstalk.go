@@ -195,11 +195,6 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 		},
 		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
 			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
-			OptionName: jsii.String("DB_SECRET_ARN"),
-			Value:      props.DbSecretArn,
-		},
-		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
-			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
 			OptionName: jsii.String("JWT_SECRET"),
 			Value:      props.JwtSecret,
 		},
@@ -227,6 +222,11 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
 			OptionName: jsii.String("APP_SECRETS_ARN"),
 			Value:      props.AppSecretsArn,
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("DB_SECRET_ARN"),
+			Value:      props.DbSecretArn,
 		},
 	}
 
