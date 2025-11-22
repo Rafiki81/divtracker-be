@@ -36,14 +36,14 @@ jobs:
       run: ./mvnw package -DskipTests
     
     - name: 💾 Guardar JAR
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: application-jar
         path: target/divtracker-be.jar
         retention-days: 1
     
     - name: 💾 Guardar archivos de deployment
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: deployment-files
         path: |
@@ -61,13 +61,13 @@ jobs:
       uses: actions/checkout@v4
     
     - name: 📥 Descargar JAR
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: application-jar
         path: target/
     
     - name: 📥 Descargar archivos deployment
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: deployment-files
     
