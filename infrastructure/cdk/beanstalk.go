@@ -129,16 +129,6 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 			Value:      jsii.String("true"),
 		},
 		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
-			Namespace:  jsii.String("aws:elasticbeanstalk:container:java:corretto"),
-			OptionName: jsii.String("Xmx"),
-			Value:      jsii.String("512m"),
-		},
-		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
-			Namespace:  jsii.String("aws:elasticbeanstalk:container:java:corretto"),
-			OptionName: jsii.String("Xms"),
-			Value:      jsii.String("256m"),
-		},
-		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
 			Namespace:  jsii.String("aws:elasticbeanstalk:application"),
 			OptionName: jsii.String("Application Healthcheck URL"),
 			Value:      jsii.String("/actuator/health"),
