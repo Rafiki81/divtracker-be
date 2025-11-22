@@ -25,7 +25,7 @@ func NewDatabaseConstruct(scope constructs.Construct, id string, props *Database
 	// Create PostgreSQL database instance
 	dbInstance := awsrds.NewDatabaseInstance(scope, jsii.String(id+"Instance"), &awsrds.DatabaseInstanceProps{
 		Engine: awsrds.DatabaseInstanceEngine_Postgres(&awsrds.PostgresInstanceEngineProps{
-			Version: awsrds.PostgresEngineVersion_VER_15_4(),
+			Version: awsrds.PostgresEngineVersion_VER_15(),
 		}),
 		InstanceType: awsec2.InstanceType_Of(awsec2.InstanceClass_BURSTABLE3, awsec2.InstanceSize_MICRO),
 		Vpc:          props.Vpc,
