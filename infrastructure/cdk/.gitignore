@@ -3,3 +3,4 @@ cdk.context.json
 .cdk.staging/
 .env
 *.swp
+divtracker-infrastructure
