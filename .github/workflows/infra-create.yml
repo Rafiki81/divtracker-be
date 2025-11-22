@@ -38,13 +38,13 @@ jobs:
     - name: 🚀 Bootstrap CDK (si es necesario)
       working-directory: infrastructure/cdk
       run: |
-        cdk bootstrap aws://${{ vars.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} || echo "Ya bootstrapped"
+        cdk bootstrap aws://${{ secrets.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} || echo "Ya bootstrapped"
     
     - name: 🔍 CDK Synth
       working-directory: infrastructure/cdk
       env:
         FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-        GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+        GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       run: cdk synth
     
@@ -52,7 +52,7 @@ jobs:
       working-directory: infrastructure/cdk
       env:
         FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
-        GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+        GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
         GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       run: cdk deploy --require-approval never
     
