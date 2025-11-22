@@ -1,1 +1,1 @@
-web: java -Dserver.port=5000 -Xms256m -Xmx512m -XX:MaxRAMPercentage=75.0 -jar divtracker-be.jar
+web: java -Dserver.port=5000 -Xms128m -Xmx384m -XX:+UseSerialGC -Dspring.profiles.active=aws -jar divtracker-be.jar
