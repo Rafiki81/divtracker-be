@@ -1,0 +1,331 @@
+package com.rafiki18.divtracker_be.service;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import static org.mockito.ArgumentMatchers.any;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
+import com.rafiki18.divtracker_be.dto.WatchlistItemRequest;
+import com.rafiki18.divtracker_be.dto.WatchlistItemResponse;
+import com.rafiki18.divtracker_be.exception.DuplicateTickerException;
+import com.rafiki18.divtracker_be.exception.WatchlistItemNotFoundException;
+import com.rafiki18.divtracker_be.mapper.WatchlistMapper;
+import com.rafiki18.divtracker_be.marketdata.stream.WatchlistTickerSubscriptionService;
+import com.rafiki18.divtracker_be.model.WatchlistItem;
+import com.rafiki18.divtracker_be.repository.WatchlistItemRepository;
+
+@ExtendWith(MockitoExtension.class)
+@DisplayName("WatchlistService Tests")
+class WatchlistServiceTest {
+    
+    @Mock
+    private WatchlistItemRepository repository;
+    
+    @Mock
+    private WatchlistMapper mapper;
+    
+    @Mock
+    private WatchlistTickerSubscriptionService tickerSubscriptionService;
+
+    @Mock
+    private MarketDataEnrichmentService marketDataEnrichmentService;
+
+    @InjectMocks
+    private WatchlistService service;
+    
+    private UUID userId;
+    private UUID itemId;
+    private WatchlistItem item;
+    private WatchlistItemRequest request;
+    private WatchlistItemResponse response;
+    
+    @BeforeEach
+    void setUp() {
+        userId = UUID.randomUUID();
+        itemId = UUID.randomUUID();
+        
+        item = WatchlistItem.builder()
+                .id(itemId)
+                .userId(userId)
+                .ticker("AAPL")
+                .exchange("NASDAQ")
+                .targetPrice(new BigDecimal("150.50"))
+                .targetPfcf(new BigDecimal("15.5"))
+                .notifyWhenBelowPrice(false)
+                .notes("Apple Inc.")
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+        
+        request = WatchlistItemRequest.builder()
+                .ticker("AAPL")
+                .exchange("NASDAQ")
+                .targetPrice(new BigDecimal("150.50"))
+                .targetPfcf(new BigDecimal("15.5"))
+                .notifyWhenBelowPrice(false)
+                .notes("Apple Inc.")
+                .build();
+        
+        response = WatchlistItemResponse.builder()
+                .id(itemId)
+                .userId(userId)
+                .ticker("AAPL")
+                .exchange("NASDAQ")
+                .targetPrice(new BigDecimal("150.50"))
+                .targetPfcf(new BigDecimal("15.5"))
+                .notifyWhenBelowPrice(false)
+                .notes("Apple Inc.")
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+    }
+    
+    @Test
+    @DisplayName("list() - Debe devolver página de items del usuario")
+    void testList_Success() {
+        // Arrange
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<WatchlistItem> itemPage = new PageImpl<>(List.of(item));
+        
+        when(repository.findAllByUserId(userId, pageable)).thenReturn(itemPage);
+        when(mapper.toResponse(item)).thenReturn(response);
+        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null});
+        
+        // Act
+        Page<WatchlistItemResponse> result = service.list(userId, pageable);
+        
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().get(0).getTicker()).isEqualTo("AAPL");
+        
+        verify(repository).findAllByUserId(userId, pageable);
+        verify(mapper).toResponse(item);
+    }
+    
+    @Test
+    @DisplayName("create() - Debe crear item exitosamente")
+    void testCreate_Success() {
+        // Arrange
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
+        when(mapper.toEntity(request, userId)).thenReturn(item);
+        when(repository.save(item)).thenReturn(item);
+        when(mapper.toResponse(item)).thenReturn(response);
+        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null});
+        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
+        
+        // Act
+        WatchlistItemResponse result = service.create(userId, request);
+        
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.getTicker()).isEqualTo("AAPL");
+        
+        verify(repository).existsByUserIdAndTickerIgnoreCase(userId, "AAPL");
+        verify(repository).save(item);
+        verify(mapper).toEntity(request, userId);
+        verify(mapper).toResponse(item);
+        verify(tickerSubscriptionService).registerTicker("AAPL");
+    }
+    
+    @Test
+    @DisplayName("create() - Debe lanzar DuplicateTickerException cuando ticker existe")
+    void testCreate_DuplicateTicker() {
+        // Arrange
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(true);
+        
+        // Act & Assert
+        assertThatThrownBy(() -> service.create(userId, request))
+                .isInstanceOf(DuplicateTickerException.class)
+                .hasMessageContaining("AAPL");
+        
+        verify(repository).existsByUserIdAndTickerIgnoreCase(userId, "AAPL");
+        verify(repository, never()).save(any());
+    }
+    
+    @Test
+    @DisplayName("update() - Debe actualizar item exitosamente")
+    void testUpdate_Success() {
+        // Arrange
+        WatchlistItemRequest updateRequest = WatchlistItemRequest.builder()
+                .targetPrice(new BigDecimal("160.00"))
+                .build();
+        
+        when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.of(item));
+        when(repository.save(item)).thenReturn(item);
+        when(mapper.toResponse(item)).thenReturn(response);
+        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null});
+        doNothing().when(mapper).updateEntityFromRequest(item, updateRequest);
+        
+        // Act
+        WatchlistItemResponse result = service.update(userId, itemId, updateRequest);
+        
+        // Assert
+        assertThat(result).isNotNull();
+        
+        verify(repository).findByUserIdAndId(userId, itemId);
+        verify(mapper).updateEntityFromRequest(item, updateRequest);
+        verify(repository).save(item);
+        verify(mapper).toResponse(item);
+        verifyNoInteractions(tickerSubscriptionService);
+    }
+    
+    @Test
+    @DisplayName("update() - Debe lanzar WatchlistItemNotFoundException cuando item no existe")
+    void testUpdate_ItemNotFound() {
+        // Arrange
+        when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.empty());
+        
+        // Act & Assert
+        assertThatThrownBy(() -> service.update(userId, itemId, request))
+                .isInstanceOf(WatchlistItemNotFoundException.class);
+        
+        verify(repository).findByUserIdAndId(userId, itemId);
+        verify(repository, never()).save(any());
+    }
+    
+    @Test
+    @DisplayName("update() - Debe lanzar DuplicateTickerException cuando nuevo ticker existe")
+    void testUpdate_DuplicateTicker() {
+        // Arrange
+        WatchlistItemRequest updateRequest = WatchlistItemRequest.builder()
+                .ticker("MSFT")
+                .build();
+        
+        item.setTicker("AAPL");
+        
+        when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.of(item));
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "MSFT")).thenReturn(true);
+        
+        // Act & Assert
+        assertThatThrownBy(() -> service.update(userId, itemId, updateRequest))
+                .isInstanceOf(DuplicateTickerException.class)
+                .hasMessageContaining("MSFT");
+        
+        verify(repository).findByUserIdAndId(userId, itemId);
+        verify(repository).existsByUserIdAndTickerIgnoreCase(userId, "MSFT");
+        verify(repository, never()).save(any());
+    }
+    
+    @Test
+    @DisplayName("delete() - Debe eliminar item exitosamente")
+    void testDelete_Success() {
+        // Arrange
+        when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.of(item));
+        doNothing().when(repository).delete(item);
+        doNothing().when(tickerSubscriptionService).unregisterTicker("AAPL");
+        
+        // Act
+        service.delete(userId, itemId);
+        
+        // Assert
+        verify(repository).findByUserIdAndId(userId, itemId);
+        verify(repository).delete(item);
+        verify(tickerSubscriptionService).unregisterTicker("AAPL");
+    }
+
+    @Test
+    @DisplayName("update() - Cuando cambia el ticker debe reconfigurar el stream")
+    void testUpdate_TickerChangeTriggersSubscriptions() {
+        // Arrange
+        WatchlistItemRequest updateRequest = new WatchlistItemRequest();
+        updateRequest.setTicker("MSFT");
+        
+        WatchlistItemResponse response = WatchlistItemResponse.builder()
+                .ticker("MSFT")  // Response should reflect the updated ticker
+                .build();
+
+        item.setTicker("AAPL");
+
+        when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.of(item));
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "MSFT")).thenReturn(false);
+        when(repository.save(item)).thenReturn(item);
+        // Mapper returns response with the NEW ticker after update
+        when(mapper.toResponse(item)).thenReturn(response);
+        // Mock market data fetch for the new ticker
+        when(marketDataEnrichmentService.fetchMarketData("MSFT")).thenReturn(new BigDecimal[]{null, null});
+        doAnswer(invocation -> {
+            item.setTicker("MSFT");
+            return null;
+        }).when(mapper).updateEntityFromRequest(item, updateRequest);
+        doNothing().when(tickerSubscriptionService).unregisterTicker("AAPL");
+        doNothing().when(tickerSubscriptionService).registerTicker("MSFT");
+
+        // Act
+        WatchlistItemResponse result = service.update(userId, itemId, updateRequest);
+
+        // Assert
+        assertThat(result).isNotNull();
+        verify(tickerSubscriptionService).unregisterTicker("AAPL");
+        verify(tickerSubscriptionService).registerTicker("MSFT");
+    }
+    
+    @Test
+    @DisplayName("delete() - Debe lanzar WatchlistItemNotFoundException cuando item no existe")
+    void testDelete_ItemNotFound() {
+        // Arrange
+        when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.empty());
+        
+        // Act & Assert
+        assertThatThrownBy(() -> service.delete(userId, itemId))
+                .isInstanceOf(WatchlistItemNotFoundException.class);
+        
+        verify(repository).findByUserIdAndId(userId, itemId);
+        verify(repository, never()).delete(any());
+    }
+    
+    @Test
+    @DisplayName("getById() - Debe devolver item por ID")
+    void testGetById_Success() {
+        // Arrange
+        when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.of(item));
+        when(mapper.toResponse(item)).thenReturn(response);
+        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null});
+        
+        // Act
+        WatchlistItemResponse result = service.getById(userId, itemId);
+        
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.getTicker()).isEqualTo("AAPL");
+        
+        verify(repository).findByUserIdAndId(userId, itemId);
+        verify(mapper).toResponse(item);
+    }
+    
+    @Test
+    @DisplayName("getById() - Debe lanzar WatchlistItemNotFoundException cuando item no existe")
+    void testGetById_ItemNotFound() {
+        // Arrange
+        when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.empty());
+        
+        // Act & Assert
+        assertThatThrownBy(() -> service.getById(userId, itemId))
+                .isInstanceOf(WatchlistItemNotFoundException.class);
+        
+        verify(repository).findByUserIdAndId(userId, itemId);
+        verify(mapper, never()).toResponse(any());
+    }
+}
