@@ -18,6 +18,7 @@ public class FinnhubProperties {
     private String websocketUrl = "wss://ws.finnhub.io";
     private Duration streamReconnectDelay = Duration.ofSeconds(5);
     private boolean streamEnabled = true;
+    private String webhookSecret;
 
     public boolean isEnabled() {
         return StringUtils.hasText(apiKey) && StringUtils.hasText(apiUrl);
@@ -25,5 +26,9 @@ public class FinnhubProperties {
 
     public boolean isStreamingEnabled() {
         return streamEnabled && isEnabled() && StringUtils.hasText(websocketUrl);
+    }
+    
+    public boolean isWebhookEnabled() {
+        return StringUtils.hasText(webhookSecret);
     }
 }
