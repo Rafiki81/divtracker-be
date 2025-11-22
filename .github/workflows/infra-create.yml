@@ -1,0 +1,65 @@
+name: 🏗️ Crear Infraestructura
+
+on:
+  workflow_dispatch:  # Solo manual
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  deploy-infrastructure:
+    name: Desplegar AWS Infrastructure
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+    
+    - name: 🔧 Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+    
+    - name: 🔐 Configurar AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: 📦 Instalar AWS CDK
+      run: npm install -g aws-cdk
+    
+    - name: 📚 Instalar dependencias Go
+      working-directory: infrastructure/cdk
+      run: go mod download
+    
+    - name: 🚀 Bootstrap CDK (si es necesario)
+      working-directory: infrastructure/cdk
+      run: |
+        cdk bootstrap aws://${{ vars.AWS_ACCOUNT_ID }}/${{ env.AWS_REGION }} || echo "Ya bootstrapped"
+    
+    - name: 🔍 CDK Synth
+      working-directory: infrastructure/cdk
+      env:
+        FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+        GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      run: cdk synth
+    
+    - name: 🏗️ Desplegar Infraestructura
+      working-directory: infrastructure/cdk
+      env:
+        FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
+        GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      run: cdk deploy --require-approval never
+    
+    - name: 📊 Obtener Outputs
+      run: |
+        echo "### 🎉 Infraestructura Desplegada" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        aws cloudformation describe-stacks \
+          --stack-name DivtrackerStack \
+          --query 'Stacks[0].Outputs' \
+          --output table >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,152 @@
+name: 🚀 Desplegar Aplicación
+
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - 'infrastructure/**'
+      - '**.md'
+      - '.github/**'
+  workflow_dispatch:  # También manual
+
+env:
+  AWS_REGION: us-east-1
+  JAVA_VERSION: '17'
+
+jobs:
+  test-and-build:
+    name: 🧪 Tests y Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+    
+    - name: ☕ Setup Java
+      uses: actions/setup-java@v4
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'corretto'
+        cache: maven
+    
+    - name: 🧪 Ejecutar Tests
+      run: ./mvnw test
+    
+    - name: 📦 Build JAR
+      run: ./mvnw package -DskipTests
+    
+    - name: 💾 Guardar JAR
+      uses: actions/upload-artifact@v3
+      with:
+        name: application-jar
+        path: target/divtracker-be.jar
+        retention-days: 1
+    
+    - name: 💾 Guardar archivos de deployment
+      uses: actions/upload-artifact@v3
+      with:
+        name: deployment-files
+        path: |
+          Procfile
+          .ebextensions/
+        retention-days: 1
+
+  deploy:
+    name: 🚀 Deploy a AWS
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    
+    steps:
+    - name: 📥 Checkout código
+      uses: actions/checkout@v4
+    
+    - name: 📥 Descargar JAR
+      uses: actions/download-artifact@v3
+      with:
+        name: application-jar
+        path: target/
+    
+    - name: 📥 Descargar archivos deployment
+      uses: actions/download-artifact@v3
+      with:
+        name: deployment-files
+    
+    - name: 🔐 Configurar AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: 📦 Crear paquete deployment
+      run: |
+        mkdir -p deploy
+        cp target/divtracker-be.jar deploy/
+        cp Procfile deploy/
+        cp -r .ebextensions deploy/
+        cd deploy
+        zip -r ../divtracker-deployment.zip .
+    
+    - name: 🏷️ Generar version label
+      id: version
+      run: |
+        VERSION="v$(date +%Y%m%d_%H%M%S)-${GITHUB_SHA::8}"
+        echo "version_label=$VERSION" >> $GITHUB_OUTPUT
+    
+    - name: ☁️ Subir a S3
+      run: |
+        BUCKET_NAME="elasticbeanstalk-${{ env.AWS_REGION }}-${{ vars.AWS_ACCOUNT_ID }}"
+        aws s3 cp divtracker-deployment.zip \
+          s3://$BUCKET_NAME/divtracker/${{ steps.version.outputs.version_label }}.zip
+    
+    - name: 📋 Crear versión de aplicación
+      run: |
+        BUCKET_NAME="elasticbeanstalk-${{ env.AWS_REGION }}-${{ vars.AWS_ACCOUNT_ID }}"
+        aws elasticbeanstalk create-application-version \
+          --application-name divtracker-prod \
+          --version-label ${{ steps.version.outputs.version_label }} \
+          --source-bundle S3Bucket="$BUCKET_NAME",S3Key="divtracker/${{ steps.version.outputs.version_label }}.zip"
+    
+    - name: 🚀 Desplegar a Elastic Beanstalk
+      run: |
+        aws elasticbeanstalk update-environment \
+          --application-name divtracker-prod \
+          --environment-name divtracker-prod \
+          --version-label ${{ steps.version.outputs.version_label }}
+    
+    - name: ⏳ Esperar deployment
+      run: |
+        aws elasticbeanstalk wait environment-updated \
+          --application-name divtracker-prod \
+          --environment-name divtracker-prod
+    
+    - name: 🌐 Obtener URL
+      id: url
+      run: |
+        URL=$(aws elasticbeanstalk describe-environments \
+          --application-name divtracker-prod \
+          --environment-names divtracker-prod \
+          --query 'Environments[0].CNAME' \
+          --output text)
+        echo "app_url=http://$URL" >> $GITHUB_OUTPUT
+    
+    - name: 🏥 Health Check
+      run: |
+        sleep 30
+        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.url.outputs.app_url }}/actuator/health)
+        if [ "$HTTP_CODE" -eq 200 ]; then
+          echo "✅ Deployment exitoso!"
+        else
+          echo "❌ Health check falló: HTTP $HTTP_CODE"
+          exit 1
+        fi
+    
+    - name: 📊 Resumen
+      run: |
+        echo "### 🚀 Deployment Exitoso" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Versión:** ${{ steps.version.outputs.version_label }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **URL:** ${{ steps.url.outputs.app_url }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Swagger:** ${{ steps.url.outputs.app_url }}/swagger-ui.html" >> $GITHUB_STEP_SUMMARY
+        echo "- **Health:** ${{ steps.url.outputs.app_url }}/actuator/health" >> $GITHUB_STEP_SUMMARY

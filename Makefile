@@ -212,46 +212,44 @@ watch:
 # Infrastructure Commands (AWS CDK with Go)
 # ============================================
 
-## infra-init-backend: Bootstrap AWS CDK - ejecutar una vez
-infra-init-backend:
-	@echo "$(GREEN)🏗️  Bootstrapping AWS CDK...$(NC)"
-	@cd infrastructure/scripts && ./bootstrap-cdk.sh
-
-## infra-deps: Instala dependencias de Go para CDK
+## infra-deps: Instala dependencias Go
 infra-deps:
-	@echo "$(GREEN)📦 Instalando dependencias de Go...$(NC)"
-	@cd infrastructure/cdk && go mod tidy && go mod download
+	@echo "$(GREEN)📦 Instalando dependencias Go...$(NC)"
+	cd $(CDK_DIR) && go mod download
 
-## infra-synth: Genera templates de CloudFormation (preview)
+## infra-synth: Preview de CloudFormation
 infra-synth:
-	@echo "$(GREEN)📋 Generando templates de CloudFormation...$(NC)"
-	@cd infrastructure/cdk && cdk synth
+	@echo "$(GREEN)🔍 Generando templates...$(NC)"
+	cd $(CDK_DIR) && cdk synth
 
-## infra-diff: Muestra diferencias con el stack desplegado
+## infra-diff: Ver diferencias con stack actual
 infra-diff:
-	@echo "$(GREEN)🔍 Comparando con infraestructura actual...$(NC)"
-	@cd infrastructure/cdk && cdk diff
+	@echo "$(GREEN)📊 Comparando cambios...$(NC)"
+	cd $(CDK_DIR) && cdk diff
 
-## infra-deploy: Despliega infraestructura en AWS
+## infra-deploy: Desplegar infraestructura (manual)
 infra-deploy:
-	@echo "$(YELLOW)⚠️  Esto creará recursos en AWS (puede generar costos)$(NC)"
-	@cd infrastructure/cdk && cdk deploy --all --require-approval never
+	@echo "$(GREEN)🚀 Desplegando infraestructura...$(NC)"
+	@echo "$(YELLOW)⚠️  Usa GitHub Actions para deployments automáticos$(NC)"
+	cd $(CDK_DIR) && cdk deploy
 
-## infra-destroy: Destruye toda la infraestructura (¡CUIDADO!)
+## infra-destroy: Destruir infraestructura (manual)
 infra-destroy:
-	@echo "$(RED)⚠️  ADVERTENCIA: Esto destruirá TODA la infraestructura!$(NC)"
-	@echo "$(RED)¿Estás seguro? Escribe 'yes' para confirmar:$(NC)" && read ans && [ "$$ans" = "yes" ] || (echo "Cancelado" && exit 1)
-	@cd infrastructure/cdk && cdk destroy --all --force
+	@echo "$(RED)💥 Destruyendo infraestructura...$(NC)"
+	@echo "$(YELLOW)⚠️  Usa GitHub Actions para mayor seguridad$(NC)"
+	cd $(CDK_DIR) && cdk destroy
 
-## infra-ls: Lista todos los stacks de CDK
-infra-ls:
-	@echo "$(GREEN)📊 Stacks de CDK:$(NC)"
-	@cd infrastructure/cdk && cdk list
+## infra-output: Ver outputs de infraestructura
+infra-output:
+	@echo "$(GREEN)📊 Outputs:$(NC)"
+	@aws cloudformation describe-stacks \
+		--stack-name DivtrackerStack \
+		--query 'Stacks[0].Outputs' \
+		--output table
 
-## infra-format: Formatea archivos de Go
-infra-format:
-	@echo "$(GREEN)✨ Formateando código Go...$(NC)"
-	@cd infrastructure/cdk && go fmt ./...
+#
+# AWS Elastic Beanstalk
+#
 
 # ============================================
 # AWS Deployment Commands

@@ -40,9 +40,16 @@ build/
 **/terraform.tfvars
 **/.terraform.tfstate.lock.info
 
+### CDK ###
+infrastructure/cdk/cdk.out/
+infrastructure/cdk/divtracker-infrastructure
+infrastructure/cdk/*.exe
+
 ### AWS Deployment ###
 aws-deploy/
+deploy/
 divtracker-aws*.zip
+divtracker-deployment*.zip
 
 ### Logs ###
 logs/
@@ -52,3 +59,6 @@ logs/
 .env
 .env.local
 .env.*.local
+
+### GitHub Actions ###
+.github/workflows/*.local.yml
