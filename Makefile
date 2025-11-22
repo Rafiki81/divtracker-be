@@ -37,87 +37,50 @@ help:
 	@echo "  $(YELLOW)make format$(NC)         - Formatea el código"
 	@echo "  $(YELLOW)make package$(NC)        - Empaqueta la aplicación (JAR)"
 	@echo ""
-	@echo "$(GREEN)Infraestructura AWS (Terraform):$(NC)"
-	@echo "  $(YELLOW)make infra-init-backend$(NC) - Bootstrap AWS CDK (primera vez)"
+	@echo "$(GREEN)Infraestructura AWS (CDK):$(NC)"
 	@echo "  $(YELLOW)make infra-deps$(NC)      - Instala dependencias de Go"
 	@echo "  $(YELLOW)make infra-synth$(NC)     - Genera templates CloudFormation"
 	@echo "  $(YELLOW)make infra-diff$(NC)      - Compara con stack actual"
-	@echo "  $(YELLOW)make infra-deploy$(NC)    - Despliega infraestructura"
-	@echo "  $(YELLOW)make infra-destroy$(NC)   - Destruye infraestructura (¡CUIDADO!)"
-	@echo "  $(YELLOW)make infra-ls$(NC)        - Lista stacks de CDK"
+	@echo "  $(YELLOW)make infra-deploy$(NC)    - Despliega infraestructura (manual)"
+	@echo "  $(YELLOW)make infra-destroy$(NC)   - Destruye infraestructura (manual)"
+	@echo "  $(YELLOW)make infra-output$(NC)    - Ver outputs de infraestructura"
 	@echo ""
 	@echo "$(GREEN)Despliegue AWS:$(NC)"
 	@echo "  $(YELLOW)make aws-build$(NC)       - Construye paquete para AWS"
-	@echo "  $(YELLOW)make deploy-prod$(NC)     - Despliega a producción"
-	@echo "  $(YELLOW)make deploy-dev$(NC)      - Despliega a desarrollo"
 	@echo "  $(YELLOW)make logs-prod$(NC)       - Ver logs de producción"
 	@echo "  $(YELLOW)make verify-health$(NC)   - Verifica salud de la aplicación"
-	@echo "  $(YELLOW)make deploy-full$(NC)     - Despliega infraestructura + aplicación"
+	@echo ""
+	@echo "$(GREEN)GitHub Actions:$(NC)"
+	@echo "  $(YELLOW)make gh-setup$(NC)        - Ver guía de setup"
+	@echo "  $(YELLOW)make gh-check$(NC)        - Verificar configuración"
+	@echo "  $(YELLOW)make ci$(NC)              - Ejecutar pipeline CI local"
 	@echo ""
 
-## install: Instala dependencias
-install:
-	@echo "$(GREEN)📦 Instalando dependencias...$(NC)"
-	$(MAVEN) clean install -DskipTests
-
-## clean: Limpia el proyecto
-clean:
-	@echo "$(GREEN)🧹 Limpiando proyecto...$(NC)"
-	$(MAVEN) clean
-
-## compile: Compila el proyecto
-compile:
-	@echo "$(GREEN)🔨 Compilando proyecto...$(NC)"
-	$(MAVEN) compile
+## build: Compila el proyecto
+build:
+	@echo "$(GREEN)🏗️  Compilando proyecto...$(NC)"
+	$(MAVEN) clean package -DskipTests
 
 ## test: Ejecuta todos los tests
 test:
 	@echo "$(GREEN)🧪 Ejecutando tests...$(NC)"
 	$(MAVEN) test
 
-## test-unit: Ejecuta solo tests unitarios
-test-unit:
-	@echo "$(GREEN)🧪 Ejecutando tests unitarios...$(NC)"
-	$(MAVEN) test -Dtest="**/*Test"
-
-## test-integration: Ejecuta solo tests de integración
-test-integration:
-	@echo "$(GREEN)🧪 Ejecutando tests de integración...$(NC)"
-	$(MAVEN) test -Dtest="**/*IntegrationTest"
-
-## run: Ejecuta la aplicación con Testcontainers (perfil local)
+## run: Ejecuta la aplicación localmente
 run:
-	@echo "$(GREEN)🚀 Ejecutando aplicación con Testcontainers...$(NC)"
-	@echo "$(YELLOW)⚠️  Docker debe estar corriendo$(NC)"
-	$(MAVEN) spring-boot:run -Dspring-boot.run.profiles=local
-
-## run-local: Ejecuta en modo local con Docker Compose
-run-local: run-dev
-
-## run-dev: Ejecuta con PostgreSQL en Docker Compose
-run-dev: docker-up
-	@echo "$(GREEN)🚀 Ejecutando aplicación en modo desarrollo...$(NC)"
-	@sleep 3
-	$(MAVEN) spring-boot:run -Dspring-boot.run.profiles=local
-
-## run-prod: Ejecuta en modo producción
-run-prod:
-	@echo "$(GREEN)🚀 Ejecutando aplicación en modo producción...$(NC)"
-	@echo "$(RED)⚠️  Asegúrate de tener PostgreSQL corriendo en localhost:5432$(NC)"
+	@echo "$(GREEN)▶️  Ejecutando aplicación...$(NC)"
 	$(MAVEN) spring-boot:run
 
-## docker-up: Levanta PostgreSQL con Docker Compose
+## run-local: Ejecuta con PostgreSQL en Docker
+run-local: docker-up
+	@echo "$(GREEN)▶️  Ejecutando con perfil local...$(NC)"
+	$(MAVEN) spring-boot:run -Dspring-boot.run.profiles=local
+
+## docker-up: Inicia PostgreSQL en Docker
 docker-up:
-	@echo "$(GREEN)🐳 Levantando PostgreSQL con Docker Compose...$(NC)"
-	@if [ ! -f docker-compose.yml ]; then \
-		echo "$(RED)❌ docker-compose.yml no encontrado$(NC)"; \
-		exit 1; \
-	fi
+	@echo "$(GREEN)🐳 Iniciando PostgreSQL...$(NC)"
 	$(DOCKER_COMPOSE) up -d
-	@echo "$(GREEN)✅ PostgreSQL corriendo en localhost:5432$(NC)"
-	@echo "   Usuario: divtracker"
-	@echo "   Password: divtracker123"
-	@echo "   Base de datos: divtracker_db"
+	@sleep 5
 
 ## docker-down: Detiene PostgreSQL
 docker-down:
@@ -255,62 +218,65 @@ infra-output:
 # AWS Deployment Commands
 # ============================================
 
-## aws-build: Construye paquete de despliegue para AWS
-aws-build:
-	@echo "$(GREEN)📦 Construyendo paquete de despliegue para AWS...$(NC)"
-	@cd infrastructure/scripts && ./build-for-aws.sh
-
-## deploy-prod: Despliega a entorno de producción
-deploy-prod:
-	@echo "$(GREEN)🚀 Desplegando a producción...$(NC)"
-	@cd infrastructure/scripts && ./deploy.sh prod
-
-## deploy-dev: Despliega a entorno de desarrollo
-deploy-dev:
-	@echo "$(GREEN)🚀 Desplegando a desarrollo...$(NC)"
-	@cd infrastructure/scripts && ./deploy.sh dev
+## aws-build: Crear paquete para AWS
+aws-build: build
+	@echo "$(GREEN)📦 Creando paquete...$(NC)"
+	@mkdir -p deploy
+	@cp target/$(PROJECT_NAME).jar deploy/
+	@cp Procfile deploy/
+	@cp -r .ebextensions deploy/
+	@cd deploy && zip -r ../divtracker-deployment.zip .
+	@echo "$(GREEN)✅ Paquete: divtracker-deployment.zip$(NC)"
 
 ## logs-prod: Ver logs de producción
 logs-prod:
-	@echo "$(GREEN)📋 Obteniendo logs de producción...$(NC)"
-	@aws elasticbeanstalk logs retrieve \
-		--environment-name divtracker-prod \
-		--region us-east-1
+	@echo "$(GREEN)📜 Logs de producción...$(NC)"
+	@aws logs tail /aws/elasticbeanstalk/divtracker-prod --follow
 
-## logs-dev: Ver logs de desarrollo
-logs-dev:
-	@echo "$(GREEN)📋 Obteniendo logs de desarrollo...$(NC)"
-	@aws elasticbeanstalk logs retrieve \
-		--environment-name divtracker-dev \
-		--region us-east-1
-
-## verify-health: Verifica salud de la aplicación
+## verify-health: Health check de la aplicación
 verify-health:
-	@echo "$(GREEN)🏥 Verificando salud de la aplicación...$(NC)"
-	@URL=$$(cd infrastructure/terraform/environments/prod && terraform output -raw application_url 2>/dev/null) && \
-	if [ -n "$$URL" ]; then \
-		curl -f "$$URL/actuator/health" && echo "" && echo "$(GREEN)✓ Aplicación saludable$(NC)" || echo "$(RED)✗ Health check falló$(NC)"; \
-	else \
-		echo "$(RED)No se pudo determinar la URL de la aplicación$(NC)"; \
+	@echo "$(GREEN)🏥 Health check...$(NC)"
+	@APP_URL=$$(aws elasticbeanstalk describe-environments \
+		--application-name divtracker-prod \
+		--environment-names divtracker-prod \
+		--query 'Environments[0].CNAME' \
+		--output text); \
+	curl -f "http://$$APP_URL/actuator/health" && \
+		echo "\n$(GREEN)✅ OK$(NC)" || \
+		echo "\n$(RED)❌ FAIL$(NC)"
+
+#
+# GitHub Actions
+#
+
+## gh-setup: Ver guía de setup
+gh-setup:
+	@cat .github/SETUP.md
+
+## gh-check: Verificar configuración
+gh-check:
+	@echo "$(GREEN)🔍 Verificando GitHub Actions...$(NC)"
+	@if [ -f .github/workflows/infra-create.yml ]; then \
+		echo "$(GREEN)✅ Workflow crear infraestructura$(NC)"; \
+	fi
+	@if [ -f .github/workflows/deploy-app.yml ]; then \
+		echo "$(GREEN)✅ Workflow desplegar app$(NC)"; \
+	fi
+	@if [ -f .github/workflows/infra-destroy.yml ]; then \
+		echo "$(GREEN)✅ Workflow destruir infra$(NC)"; \
 	fi
 
-# ============================================
-# Combined Commands
-# ============================================
+## ci: Pipeline CI completo
+ci: clean test build aws-build
+	@echo "$(GREEN)✅ CI completado$(NC)"
 
-## setup-aws: Configura toda la infraestructura AWS
-setup-aws: infra-init-backend infra-deps
-	@echo "$(GREEN)✓ AWS CDK configurado!$(NC)"
-	@echo ""
-	@echo "Siguiente paso:"
-	@echo "  1. Exportar variables: export FINNHUB_API_KEY=tu-key"
-	@echo "  2. Ejecutar 'make infra-synth' para preview"
-	@echo "  3. Ejecutar 'make infra-deploy' para crear infraestructura"
-	@echo "  4. Ejecutar 'make deploy-prod' para desplegar aplicación"
+#
+# Setup Completo
+#
 
-## deploy-full: Despliega stack completo (infraestructura + aplicación)
-deploy-full: infra-deploy deploy-prod
-	@echo "$(GREEN)✓ Despliegue completo finalizado!$(NC)"
-	@cd infrastructure/cdk && cdk list
+## setup: Setup completo local
+setup: docker-up db-migrate
+	@echo "$(GREEN)✅ Setup completo!$(NC)"
+	@echo "$(YELLOW)Usa: make run-local$(NC)"
 
 .DEFAULT_GOAL := help
