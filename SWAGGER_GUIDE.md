@@ -49,6 +49,76 @@ Ahora puedes probar todos los endpoints protegidos.
   }
   ```
 
+#### Watchlist
+
+- **GET /api/v1/watchlist** - Listar empresas en el watchlist (paginado)
+  - Parámetros: `page`, `size`, `sortBy`, `direction`
+  
+- **GET /api/v1/watchlist/{id}** - Obtener detalles de una empresa
+  
+- **POST /api/v1/watchlist** - Añadir empresa al watchlist
+  ```json
+  {
+    "ticker": "AAPL",
+    "exchange": "NASDAQ",
+    "targetPrice": 150.50,
+    "targetPfcf": 15.5,
+    "notifyWhenBelowPrice": false,
+    "notes": "Empresa tecnológica líder",
+    "estimatedFcfGrowthRate": 0.08,
+    "investmentHorizonYears": 5,
+    "discountRate": 0.10
+  }
+  ```
+  
+- **PATCH /api/v1/watchlist/{id}** - Actualizar empresa (parcial)
+  
+- **DELETE /api/v1/watchlist/{id}** - Eliminar empresa del watchlist
+
+#### Métricas Calculadas Automáticamente
+
+La respuesta de cada item del watchlist incluye:
+
+```json
+{
+  "id": "uuid",
+  "ticker": "AAPL",
+  "currentPrice": 172.15,
+  "targetPrice": 150.50,
+  "targetPfcf": 15.5,
+  "freeCashFlowPerShare": 11.45,
+  "actualPfcf": 15.03,
+  "fairPriceByPfcf": 180.00,
+  "discountToFairPrice": 0.12,
+  "deviationFromTargetPrice": -0.05,
+  "undervalued": true,
+  
+  // Parámetros de valoración
+  "estimatedFcfGrowthRate": 0.08,
+  "investmentHorizonYears": 5,
+  "discountRate": 0.10,
+  
+  // Métricas avanzadas
+  "dcfFairValue": 195.50,
+  "fcfYield": 6.65,
+  "marginOfSafety": 25.00,
+  "paybackPeriod": 7.2,
+  "estimatedROI": 85.50,
+  "estimatedIRR": 12.50,
+  
+  "createdAt": "2023-11-22T10:30:00",
+  "updatedAt": "2023-11-22T15:45:00"
+}
+```
+
+**Explicación de las métricas:**
+- **dcfFairValue**: Valor intrínseco calculado por Discounted Cash Flow
+- **fcfYield**: Rendimiento del Free Cash Flow (FCF/Precio × 100)
+- **marginOfSafety**: % de descuento del precio actual vs valor DCF (positivo = infravalorado)
+- **paybackPeriod**: Años estimados para recuperar la inversión
+- **estimatedROI**: Retorno de inversión esperado al horizonte configurado
+- **estimatedIRR**: Tasa Interna de Retorno anual esperada
+
 #### Testing
 
 - **GET /api/test/public** - Endpoint público (no requiere autenticación)

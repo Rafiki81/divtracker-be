@@ -48,7 +48,8 @@ public class WatchlistController {
     
     @Operation(
         summary = "Listar items del watchlist",
-        description = "Obtiene una lista paginada de todas las empresas en el watchlist del usuario autenticado"
+        description = "Obtiene una lista paginada de todas las empresas en el watchlist del usuario autenticado. " +
+                "Incluye precios actualizados y todas las métricas de valoración calculadas (DCF, TIR, FCF Yield, etc.)."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -81,7 +82,9 @@ public class WatchlistController {
     
     @Operation(
         summary = "Obtener un item del watchlist",
-        description = "Obtiene los detalles de un item específico del watchlist"
+        description = "Obtiene los detalles completos de un item específico del watchlist, " +
+                "incluyendo precio actual, métricas de valoración (DCF, TIR, margen de seguridad, etc.) " +
+                "y parámetros de análisis configurados."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -115,7 +118,10 @@ public class WatchlistController {
     
     @Operation(
         summary = "Crear item en el watchlist",
-        description = "Añade una nueva empresa al watchlist del usuario autenticado"
+        description = "Añade una nueva empresa al watchlist del usuario autenticado. " +
+                "Calcula automáticamente métricas de valoración como DCF, TIR, FCF Yield, margen de seguridad, " +
+                "payback period y ROI estimado. Los parámetros de valoración (growthRate, horizon, discountRate) " +
+                "son opcionales y se usan para cálculos avanzados."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -161,7 +167,9 @@ public class WatchlistController {
     
     @Operation(
         summary = "Actualizar item del watchlist",
-        description = "Actualiza parcialmente un item existente en el watchlist (PATCH/merge)"
+        description = "Actualiza parcialmente un item existente en el watchlist (PATCH/merge). " +
+                "Recalcula automáticamente todas las métricas de valoración cuando se actualizan " +
+                "los parámetros de entrada (targetPrice, targetPfcf, growthRate, horizon, discountRate)."
     )
     @ApiResponses(value = {
         @ApiResponse(

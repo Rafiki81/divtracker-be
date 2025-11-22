@@ -24,7 +24,7 @@ public class OpenApiConfig {
     @Value("${app.version:1.0.0}")
     private String appVersion;
 
-    @Value("${app.description:Backend para cálculo de precio de acciones por Free Cash Flow}")
+    @Value("${app.description:Backend para seguimiento y valoración de acciones con análisis de Free Cash Flow, DCF, TIR y métricas financieras avanzadas}")
     private String appDescription;
 
     @Bean
@@ -35,7 +35,16 @@ public class OpenApiConfig {
                 .info(new Info()
                         .title(appName + " API")
                         .version(appVersion)
-                        .description(appDescription)
+                        .description(appDescription + "\n\n" +
+                                "### Características principales:\n" +
+                                "- 📊 **Análisis de valoración**: Cálculo de precio justo usando P/FCF objetivo\n" +
+                                "- 💰 **DCF (Discounted Cash Flow)**: Valoración intrínseca con flujos descontados\n" +
+                                "- 📈 **TIR (Tasa Interna de Retorno)**: Rentabilidad esperada de la inversión\n" +
+                                "- 🎯 **FCF Yield**: Rendimiento del Free Cash Flow\n" +
+                                "- 🛡️ **Margen de seguridad**: Diferencia entre precio actual y valor intrínseco\n" +
+                                "- ⏱️ **Payback Period**: Tiempo estimado de recuperación de la inversión\n" +
+                                "- 📊 **ROI estimado**: Retorno esperado según el horizonte de inversión\n" +
+                                "- 🔔 **Alertas de precio**: Notificaciones cuando el precio alcanza objetivos")
                         .contact(new Contact()
                                 .name("Rafael Perez Beato")
                                 .email("rafiki18@example.com"))
