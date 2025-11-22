@@ -26,10 +26,12 @@ DivTracker es una aplicación backend REST API para análisis financiero avanzad
   - Margen de Seguridad
   - Periodo de Payback
   - ROI Estimado
-- 📊 **WebSocket** para actualizaciones en tiempo real
+- 🔔 **Webhooks de Finnhub** para actualizaciones en tiempo real de precios
 - 🗄️ **PostgreSQL** con migraciones Flyway
 - 📝 **OpenAPI/Swagger** para documentación interactiva
 - 🐳 **Docker** y **AWS Elastic Beanstalk** ready
+- 🏗️ **AWS CDK (Go)** para infraestructura como código
+- 🚀 **GitHub Actions** para CI/CD automatizado
 
 ---
 
@@ -113,8 +115,18 @@ divtracker-be/
 │           ├── service/              # Tests unitarios
 │           └── e2e/                  # Tests end-to-end (pendiente)
 ├── infrastructure/                   # Infraestructura como código
-│   ├── terraform/                    # Terraform AWS
+│   ├── cdk/                          # AWS CDK en Go
+│   │   ├── main.go                   # CDK App entry point
+│   │   ├── stack.go                  # Main infrastructure stack
+│   │   ├── vpc.go                    # VPC construct
+│   │   ├── database.go               # RDS PostgreSQL
+│   │   ├── secrets.go                # Secrets Manager
+│   │   └── beanstalk.go              # Elastic Beanstalk
 │   └── scripts/                      # Scripts de deployment
+├── .github/workflows/                # GitHub Actions CI/CD
+│   ├── infra-create.yml              # Crear infraestructura
+│   ├── deploy-app.yml                # Desplegar aplicación
+│   └── infra-destroy.yml             # Destruir infraestructura
 ├── .ebextensions/                    # Config Elastic Beanstalk
 ├── docker-compose.yml                # PostgreSQL local
 ├── Makefile                          # Comandos automatizados
@@ -373,19 +385,47 @@ Retorno total esperado en el horizonte temporal.
 | Variable | Descripción | Default | Requerido |
 |----------|-------------|---------|-----------|
 | `SPRING_PROFILES_ACTIVE` | Perfil activo | local | No |
-| `DATABASE_URL` | JDBC URL | jdbc:postgresql://localhost:5432/divtracker | No |
+| `RDS_HOSTNAME` | Hostname de PostgreSQL | localhost | No |
+| `RDS_PORT` | Puerto de PostgreSQL | 5432 | No |
+| `RDS_DB_NAME` | Nombre de la base de datos | divtracker | No |
+| `RDS_USERNAME` | Usuario de la base de datos | divtracker | No |
+| `DB_PASSWORD` | Contraseña de la base de datos | - | Sí (AWS) |
 | `FINNHUB_API_KEY` | API key de Finnhub | - | Sí* |
+| `FINNHUB_WEBHOOK_SECRET` | Secret para webhooks de Finnhub | - | Sí (AWS) |
 | `JWT_SECRET` | Secret para JWT | (generado) | No |
 | `GOOGLE_CLIENT_ID` | OAuth Google Client ID | - | No |
 | `GOOGLE_CLIENT_SECRET` | OAuth Google Secret | - | No |
+| `APP_SECRETS_ARN` | ARN del secret consolidado en AWS | - | No (AWS) |
 
 _*Opcional para testing sin datos reales_
 
 ---
 
-## 🚢 Deployment
+## 🚢 Deployment en AWS
 
-Ver [infrastructure/README.md](infrastructure/README.md) para detalles completos.
+### Despliegue automatizado con GitHub Actions
+
+1. **Configurar secrets en GitHub**:
+   - `AWS_ACCESS_KEY_ID`
+   - `AWS_SECRET_ACCESS_KEY`
+   - `AWS_ACCOUNT_ID`
+   - `FINNHUB_API_KEY`
+   - `FINNHUB_WEBHOOK_SECRET`
+   - `JWT_SECRET`
+   - `GOOGLE_CLIENT_ID` (opcional)
+   - `GOOGLE_CLIENT_SECRET` (opcional)
+
+2. **Ejecutar workflow "🏗️ Crear Infraestructura"**:
+   - Crea VPC, RDS PostgreSQL, Secrets Manager, Elastic Beanstalk
+   - Tiempo estimado: ~15-20 minutos
+   - Configurado para FREE TIER (t2.micro, db.t3.micro)
+
+3. **Ejecutar workflow "🚀 Desplegar Aplicación"**:
+   - Tests → Build → Deploy → Health Check
+   - Se ejecuta automáticamente en push a `main`
+   - Tiempo estimado: ~5-7 minutos
+
+Ver [infrastructure/README.md](infrastructure/README.md) para detalles completos sobre CDK y arquitectura AWS.
 
 ### Quick Deploy a AWS
 

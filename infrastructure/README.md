@@ -31,9 +31,9 @@ Esta carpeta contiene toda la **Infraestructura como Código (IaC)** necesaria p
 │  │  │                 │      │                 │       │  │
 │  │  │  ┌───────────┐  │      │  ┌───────────┐  │       │  │
 │  │  │  │    RDS    │  │      │  │    RDS    │  │       │  │
-│  │  │  │ PostgreSQL│  │      │  │  Standby  │  │       │  │
-│  │  │  │(db.t3.micro)│◄─┼────┼──┤(Multi-AZ) │  │       │  │
-│  │  │  └───────────┘  │      │  └───────────┘  │       │  │
+│  │  │ PostgreSQL│  │      │                 │       │  │
+│  │  │(db.t3.micro)│  │      │ (Single-AZ)  │       │  │
+│  │  │  └───────────┘  │      │                 │       │  │
 │  │  └─────────────────┘      └─────────────────┘       │  │
 │  └──────────────────────────────────────────────────────┘  │
 │                                                             │
@@ -46,13 +46,14 @@ Esta carpeta contiene toda la **Infraestructura como Código (IaC)** necesaria p
 
 ### ✨ Características de la Infraestructura
 
-- **🚀 Elastic Beanstalk**: Despliegue simplificado con Java 17 (Corretto)
-- **🗄️ RDS PostgreSQL**: Base de datos gestionada con backups automáticos
-- **🔒 Secrets Manager**: Gestión segura de credenciales y API keys
-- **📊 CloudWatch**: Monitorización y logs centralizados
-- **🌐 VPC**: Red privada con subnets públicas y privadas
-- **🛡️ Security Groups**: Firewall configurado para acceso mínimo necesario
-- **💰 Free Tier Optimized**: Configuración que minimiza costos
+- **🚀 Elastic Beanstalk**: Single Instance con Java 17 (Corretto) - FREE TIER
+- **🗄️ RDS PostgreSQL 15**: Single-AZ db.t3.micro con backups - FREE TIER
+- **🔒 Secrets Manager**: 1 secret consolidado con todas las credenciales
+- **📊 CloudWatch Logs**: Retención 7 días para troubleshooting
+- **🌐 VPC**: Red privada con subnets públicas (app) y privadas aisladas (DB)
+- **🛡️ Security Groups**: Mínimo privilegio - solo puertos necesarios
+- **🔔 Webhooks**: Finnhub webhooks para actualizaciones de precios en tiempo real
+- **💰 FREE TIER**: t2.micro + db.t3.micro = ~0€/mes primer año, ~15-22€/mes después
 
 ---
 
@@ -129,12 +130,14 @@ type DatabaseConstructProps struct {
 ```
 
 **Configuración**:
+- Engine: PostgreSQL 15 (última versión)
 - InstanceType: db.t3.micro (Free Tier)
-- AllocatedStorage: 20 GB
-- StorageType: gp3
-- MultiAz: false (Free Tier)
+- AllocatedStorage: 20 GB GP3
+- MultiAz: false (Single-AZ para Free Tier)
 - BackupRetention: 7 días
-- DeletionProtection: false (dev)
+- Username: divtracker (configurado en credentials)
+- Password: auto-generado y guardado en Secrets Manager
+- DeletionProtection: false (desarrollo)
 
 **Struct retornado**:
 ```go
@@ -158,20 +161,28 @@ type DatabaseConstruct struct {
 **Props requeridas**:
 ```go
 type ElasticBeanstalkConstructProps struct {
-    Vpc            awsec2.Vpc
-    PublicSubnets  *[]awsec2.ISubnet
-    SecurityGroup  awsec2.SecurityGroup
-    Database       awsrds.DatabaseInstance
-    AppSecretsArn  *string
+    Vpc                  awsec2.Vpc
+    PublicSubnets        *[]awsec2.ISubnet
+    SecurityGroup        awsec2.SecurityGroup
+    Database             awsrds.DatabaseInstance
+    DatabaseSecret       awssecretsmanager.ISecret
+    AppSecretsArn        *string
+    DbSecretArn          *string
+    JwtSecret            *string
+    FinnhubApiKey        string
+    FinnhubWebhookSecret string
+    GoogleClientId       string
+    GoogleClientSecret   string
 }
 ```
 
 **Configuración**:
 - InstanceType: t2.micro (Free Tier)
-- EnvironmentType: SingleInstance
-- SolutionStack: Amazon Linux 2023 + Corretto 17
+- EnvironmentType: SingleInstance (no load balancer)
+- SolutionStack: Amazon Linux 2023 v4.8.0 + Corretto 17
 - Health Check: `/actuator/health`
-- JVM Settings: Xms=256m, Xmx=512m
+- JVM Settings: Xms=128m, Xmx=384m (configurado en Procfile)
+- HikariCP: max-pool-size=5, min-idle=1
 
 **Outputs**:
 - CfnOutput con Application URL
@@ -215,22 +226,25 @@ aws sts get-caller-identity
 - `AWS_SECRET_ACCESS_KEY`
 - Región: `us-east-1` (recomendada para Free Tier)
 
-### 3. Secrets y API Keys
+### 3. GitHub Secrets
 
-Exporta las variables de entorno antes de desplegar:
+Configura los siguientes secrets en tu repositorio de GitHub (Settings → Secrets and variables → Actions):
 
-```bash
-# REQUERIDO
-export FINNHUB_API_KEY="tu-api-key-aqui"
+**Requeridos para infraestructura:**
+- `AWS_ACCESS_KEY_ID` - Access key de AWS
+- `AWS_SECRET_ACCESS_KEY` - Secret key de AWS  
+- `AWS_ACCOUNT_ID` - ID de tu cuenta AWS
 
-# OPCIONAL (OAuth2 Google)
-export GOOGLE_CLIENT_ID="tu-client-id"
-export GOOGLE_CLIENT_SECRET="tu-client-secret"
-```
+**Requeridos para la aplicación:**
+- `FINNHUB_API_KEY` - Obtener en [finnhub.io/register](https://finnhub.io/register)
+- `FINNHUB_WEBHOOK_SECRET` - Secret para verificar webhooks (generar aleatorio)
+- `JWT_SECRET` - Secret para firmar tokens JWT (64+ caracteres aleatorios)
 
-Obtén tus API keys en:
-- **Finnhub API Key**: [finnhub.io/register](https://finnhub.io/register)
-- **Google OAuth Credentials**: [console.cloud.google.com](https://console.cloud.google.com)
+**Opcionales (OAuth2 Google):**
+- `GOOGLE_CLIENT_ID` - Client ID de [console.cloud.google.com](https://console.cloud.google.com)
+- `GOOGLE_CLIENT_SECRET` - Client Secret de Google OAuth
+
+Ver [.github/SETUP.md](../.github/SETUP.md) para instrucciones detalladas.
 
 ---
 
