@@ -118,9 +118,42 @@ jobs:
     
     - name: ⏳ Esperar deployment
       run: |
-        aws elasticbeanstalk wait environment-updated \
-          --application-name divtracker-prod \
-          --environment-name divtracker-prod
+        echo "Esperando a que el entorno se actualice (timeout: 15 minutos)..."
+        MAX_ATTEMPTS=45  # 45 intentos × 20 segundos = 15 minutos
+        ATTEMPT=0
+        
+        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+          STATUS=$(aws elasticbeanstalk describe-environments \
+            --application-name divtracker-prod \
+            --environment-names divtracker-prod \
+            --query 'Environments[0].Status' \
+            --output text)
+          
+          HEALTH=$(aws elasticbeanstalk describe-environments \
+            --application-name divtracker-prod \
+            --environment-names divtracker-prod \
+            --query 'Environments[0].Health' \
+            --output text)
+          
+          echo "Intento $((ATTEMPT + 1))/$MAX_ATTEMPTS - Status: $STATUS, Health: $HEALTH"
+          
+          if [ "$STATUS" = "Ready" ]; then
+            echo "✅ Deployment completado! Status: $STATUS, Health: $HEALTH"
+            exit 0
+          fi
+          
+          if [ "$STATUS" = "Terminated" ] || [ "$STATUS" = "Terminating" ]; then
+            echo "❌ El entorno fue terminado durante el deployment"
+            exit 1
+          fi
+          
+          ATTEMPT=$((ATTEMPT + 1))
+          sleep 20
+        done
+        
+        echo "⚠️ Timeout alcanzado después de 15 minutos"
+        echo "El deployment puede seguir en progreso. Verifica manualmente en AWS Console."
+        exit 1
     
     - name: 🌐 Obtener URL
       id: url
