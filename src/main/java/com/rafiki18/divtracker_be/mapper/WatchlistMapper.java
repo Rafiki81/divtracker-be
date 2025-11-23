@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 
 import com.rafiki18.divtracker_be.dto.WatchlistItemRequest;
 import com.rafiki18.divtracker_be.dto.WatchlistItemResponse;
+import com.rafiki18.divtracker_be.model.InstrumentFundamentals;
 import com.rafiki18.divtracker_be.model.WatchlistItem;
 import com.rafiki18.divtracker_be.service.FinancialMetricsService;
 
@@ -118,11 +119,13 @@ public class WatchlistMapper {
      * Enriquece la respuesta con datos de mercado y métricas financieras avanzadas
      */
     public void enrichWithMarketData(WatchlistItemResponse response, 
-                                     BigDecimal currentPrice, 
-                                     BigDecimal fcfPerShare) {
-        if (response == null) {
+                                     InstrumentFundamentals fundamentals) {
+        if (response == null || fundamentals == null) {
             return;
         }
+        
+        BigDecimal currentPrice = fundamentals.getCurrentPrice();
+        BigDecimal fcfPerShare = fundamentals.getFcfPerShare();
         
         if (currentPrice != null) {
             response.setCurrentPrice(currentPrice);
@@ -144,13 +147,70 @@ public class WatchlistMapper {
             return;
         }
         
-        // Usar valores por defecto si no están configurados
-        BigDecimal growthRate = response.getEstimatedFcfGrowthRate() != null ? 
-                response.getEstimatedFcfGrowthRate() : new BigDecimal("0.05");
+        // 1. Determine Growth Rate
+        BigDecimal growthRate = response.getEstimatedFcfGrowthRate();
+        if (growthRate == null) {
+            // Try FOCF CAGR first (most relevant)
+            if (fundamentals.getFocfCagr5Y() != null) {
+                growthRate = fundamentals.getFocfCagr5Y().divide(new BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP);
+            } 
+            // Fallback to average of other growth metrics
+            else {
+                BigDecimal sum = BigDecimal.ZERO;
+                int count = 0;
+                
+                if (fundamentals.getEpsGrowth5Y() != null) {
+                    sum = sum.add(fundamentals.getEpsGrowth5Y());
+                    count++;
+                }
+                if (fundamentals.getRevenueGrowth5Y() != null) {
+                    sum = sum.add(fundamentals.getRevenueGrowth5Y());
+                    count++;
+                }
+                if (fundamentals.getDividendGrowthRate5Y() != null) {
+                    sum = sum.add(fundamentals.getDividendGrowthRate5Y());
+                    count++;
+                }
+                
+                if (count > 0) {
+                    growthRate = sum.divide(BigDecimal.valueOf(count), 4, java.math.RoundingMode.HALF_UP)
+                            .divide(new BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP);
+                } else {
+                    growthRate = new BigDecimal("0.05"); // Default 5%
+                }
+            }
+            
+            // Cap growth rate for safety (e.g., max 15%)
+            if (growthRate.compareTo(new BigDecimal("0.15")) > 0) {
+                growthRate = new BigDecimal("0.15");
+            }
+        }
+        
+        // 2. Determine Discount Rate
+        BigDecimal discountRate = response.getDiscountRate();
+        if (discountRate == null) {
+            // Use CAPM if Beta is available
+            // Risk Free Rate (10Y Treasury) ~ 4.4%
+            // Equity Risk Premium ~ 5.5%
+            if (fundamentals.getBeta() != null) {
+                BigDecimal riskFree = new BigDecimal("0.044");
+                BigDecimal marketPremium = new BigDecimal("0.055");
+                discountRate = riskFree.add(fundamentals.getBeta().multiply(marketPremium))
+                        .setScale(4, java.math.RoundingMode.HALF_UP);
+                
+                // Clamp discount rate between 6% and 15%
+                if (discountRate.compareTo(new BigDecimal("0.06")) < 0) {
+                    discountRate = new BigDecimal("0.06");
+                } else if (discountRate.compareTo(new BigDecimal("0.15")) > 0) {
+                    discountRate = new BigDecimal("0.15");
+                }
+            } else {
+                discountRate = new BigDecimal("0.10"); // Default 10%
+            }
+        }
+        
         Integer horizon = response.getInvestmentHorizonYears() != null ? 
                 response.getInvestmentHorizonYears() : 5;
-        BigDecimal discountRate = response.getDiscountRate() != null ? 
-                response.getDiscountRate() : new BigDecimal("0.10");
         
         // Calcular P/FCF actual
         if (fcfPerShare.compareTo(BigDecimal.ZERO) > 0) {

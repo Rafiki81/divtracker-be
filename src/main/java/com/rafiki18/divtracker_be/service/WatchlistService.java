@@ -60,15 +60,16 @@ public class WatchlistService {
         BigDecimal currentPrice = null;
         BigDecimal fcfPerShare = null;
         BigDecimal epsGrowth5Y = null;
+        BigDecimal focfCagr5Y = null;
         
         if (marketDataEnrichmentService.isAvailable()) {
-            BigDecimal[] marketData = marketDataEnrichmentService.fetchMarketData(normalizedTicker);
-            currentPrice = marketData[0];  // Current price
-            fcfPerShare = marketData[1];   // FCF per share
-            // marketData[2] = PE TTM
-            // marketData[3] = Beta
-            epsGrowth5Y = marketData[4];   // EPS Growth 5Y
-            // marketData[5] = Revenue Growth 5Y
+            var fundamentals = marketDataEnrichmentService.getFundamentals(normalizedTicker);
+            if (fundamentals != null) {
+                currentPrice = fundamentals.getCurrentPrice();
+                fcfPerShare = fundamentals.getFcfPerShare();
+                epsGrowth5Y = fundamentals.getEpsGrowth5Y();
+                focfCagr5Y = fundamentals.getFocfCagr5Y();
+            }
         }
         
         // Caso 1: No se especificó ningún valor → Intentar auto-calcular con datos de mercado
@@ -129,10 +130,12 @@ public class WatchlistService {
         }
 
         // Auto-set estimated growth rate if not provided
-        if (request.getEstimatedFcfGrowthRate() == null && epsGrowth5Y != null) {
+        BigDecimal growthToUse = focfCagr5Y != null ? focfCagr5Y : epsGrowth5Y;
+        
+        if (request.getEstimatedFcfGrowthRate() == null && growthToUse != null) {
             // Convert percentage (e.g. 36.82) to decimal (0.3682)
             // Cap at reasonable limits (e.g. max 15% to be conservative)
-            BigDecimal growthDecimal = epsGrowth5Y.divide(new BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP);
+            BigDecimal growthDecimal = growthToUse.divide(new BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP);
             BigDecimal maxGrowth = new BigDecimal("0.15");
             
             if (growthDecimal.compareTo(maxGrowth) > 0) {
@@ -238,16 +241,13 @@ public class WatchlistService {
             return;
         }
         
-        BigDecimal[] marketData = marketDataEnrichmentService.fetchMarketData(response.getTicker());
-        BigDecimal currentPrice = marketData[0];  // Current price
-        BigDecimal fcfPerShare = marketData[1];   // FCF per share
-        // marketData[2] = PE TTM (available for future use)
-        // marketData[3] = Beta (available for future use)
+        var fundamentals = marketDataEnrichmentService.getFundamentals(response.getTicker());
         
-        log.info("Enriching response for {}: currentPrice={}, fcfPerShare={}", response.getTicker(), currentPrice, fcfPerShare);
+        log.info("Enriching response for {}: fundamentals found={}", 
+                response.getTicker(), fundamentals != null);
 
-        if (currentPrice != null || fcfPerShare != null) {
-            watchlistMapper.enrichWithMarketData(response, currentPrice, fcfPerShare);
+        if (fundamentals != null) {
+            watchlistMapper.enrichWithMarketData(response, fundamentals);
         }
     }
 }

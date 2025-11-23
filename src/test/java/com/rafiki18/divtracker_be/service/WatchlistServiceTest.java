@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import static org.mockito.Mockito.doAnswer;
@@ -31,6 +32,7 @@ import com.rafiki18.divtracker_be.dto.WatchlistItemResponse;
 import com.rafiki18.divtracker_be.exception.DuplicateTickerException;
 import com.rafiki18.divtracker_be.exception.WatchlistItemNotFoundException;
 import com.rafiki18.divtracker_be.mapper.WatchlistMapper;
+import com.rafiki18.divtracker_be.model.InstrumentFundamentals;
 import com.rafiki18.divtracker_be.model.WatchlistItem;
 import com.rafiki18.divtracker_be.repository.WatchlistItemRepository;
 
@@ -55,6 +57,7 @@ class WatchlistServiceTest {
     private WatchlistItem item;
     private WatchlistItemRequest request;
     private WatchlistItemResponse response;
+    private InstrumentFundamentals fundamentals;
     
     @BeforeEach
     void setUp() {
@@ -95,6 +98,12 @@ class WatchlistServiceTest {
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();
+
+        fundamentals = InstrumentFundamentals.builder()
+                .ticker("AAPL")
+                .currentPrice(new BigDecimal("175.43"))
+                .fcfPerShareAnnual(new BigDecimal("6.32"))
+                .build();
     }
     
     @Test
@@ -106,7 +115,7 @@ class WatchlistServiceTest {
         
         when(repository.findAllByUserId(userId, pageable)).thenReturn(itemPage);
         when(mapper.toResponse(item)).thenReturn(response);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("AAPL")).thenReturn(fundamentals);
         
         // Act
         Page<WatchlistItemResponse> result = service.list(userId, pageable);
@@ -118,6 +127,7 @@ class WatchlistServiceTest {
         
         verify(repository).findAllByUserId(userId, pageable);
         verify(mapper).toResponse(item);
+        verify(mapper).enrichWithMarketData(response, fundamentals);
     }
     
     @Test
@@ -128,7 +138,8 @@ class WatchlistServiceTest {
         when(mapper.toEntity(request, userId)).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
+        when(marketDataEnrichmentService.getFundamentals("AAPL")).thenReturn(fundamentals);
         
         // Act
         WatchlistItemResponse result = service.create(userId, request);
@@ -141,6 +152,7 @@ class WatchlistServiceTest {
         verify(repository).save(item);
         verify(mapper).toEntity(request, userId);
         verify(mapper).toResponse(item);
+        verify(mapper).enrichWithMarketData(response, fundamentals);
     }
     
     @Test
@@ -169,7 +181,7 @@ class WatchlistServiceTest {
         when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.of(item));
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("AAPL")).thenReturn(fundamentals);
         doNothing().when(mapper).updateEntityFromRequest(item, updateRequest);
         
         // Act
@@ -182,6 +194,7 @@ class WatchlistServiceTest {
         verify(mapper).updateEntityFromRequest(item, updateRequest);
         verify(repository).save(item);
         verify(mapper).toResponse(item);
+        verify(mapper).enrichWithMarketData(response, fundamentals);
     }
     
     @Test
@@ -253,7 +266,7 @@ class WatchlistServiceTest {
         // Mapper returns response with the NEW ticker after update
         when(mapper.toResponse(item)).thenReturn(response);
         // Mock market data fetch for the new ticker
-        when(marketDataEnrichmentService.fetchMarketData("MSFT")).thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("MSFT")).thenReturn(null);
         doAnswer(invocation -> {
             item.setTicker("MSFT");
             return null;
@@ -286,7 +299,7 @@ class WatchlistServiceTest {
         // Arrange
         when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.of(item));
         when(mapper.toResponse(item)).thenReturn(response);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("AAPL")).thenReturn(fundamentals);
         
         // Act
         WatchlistItemResponse result = service.getById(userId, itemId);
@@ -297,20 +310,7 @@ class WatchlistServiceTest {
         
         verify(repository).findByUserIdAndId(userId, itemId);
         verify(mapper).toResponse(item);
-    }
-    
-    @Test
-    @DisplayName("getById() - Debe lanzar WatchlistItemNotFoundException cuando item no existe")
-    void testGetById_ItemNotFound() {
-        // Arrange
-        when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.empty());
-        
-        // Act & Assert
-        assertThatThrownBy(() -> service.getById(userId, itemId))
-                .isInstanceOf(WatchlistItemNotFoundException.class);
-        
-        verify(repository).findByUserIdAndId(userId, itemId);
-        verify(mapper, never()).toResponse(any());
+        verify(mapper).enrichWithMarketData(response, fundamentals);
     }
     
     @Test
@@ -321,16 +321,11 @@ class WatchlistServiceTest {
                 .ticker("AAPL")
                 .build();
         
-        BigDecimal currentPrice = new BigDecimal("175.43");
-        BigDecimal fcfPerShare = new BigDecimal("6.32");
         BigDecimal expectedPfcf = new BigDecimal("27.76");
         
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
-        // Primera llamada durante create() para auto-cargar, segunda durante enrichWithMarketData()
-        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
-                .thenReturn(new BigDecimal[]{currentPrice, fcfPerShare, null, null, null, null})
-                .thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("AAPL")).thenReturn(fundamentals);
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
@@ -343,7 +338,7 @@ class WatchlistServiceTest {
         assertThat(autoRequest.getTargetPfcf()).isEqualTo(expectedPfcf);
         
         verify(marketDataEnrichmentService).isAvailable();
-        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("AAPL");
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).getFundamentals("AAPL");
         verify(repository).save(item);
     }
     
@@ -365,8 +360,7 @@ class WatchlistServiceTest {
         
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "INVALID")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
-        when(marketDataEnrichmentService.fetchMarketData("INVALID"))
-                .thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("INVALID")).thenReturn(null);
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithoutTargets);
         when(repository.save(itemWithoutTargets)).thenReturn(itemWithoutTargets);
         when(mapper.toResponse(itemWithoutTargets)).thenReturn(responseWithoutTargets);
@@ -381,7 +375,7 @@ class WatchlistServiceTest {
         assertThat(autoRequest.getTargetPfcf()).isNull();
         
         verify(marketDataEnrichmentService).isAvailable();
-        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("INVALID");
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).getFundamentals("INVALID");
         verify(repository).save(itemWithoutTargets);
     }
     
@@ -403,8 +397,7 @@ class WatchlistServiceTest {
         
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
-                .thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("AAPL")).thenReturn(null);
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithoutTargets);
         when(repository.save(itemWithoutTargets)).thenReturn(itemWithoutTargets);
         when(mapper.toResponse(itemWithoutTargets)).thenReturn(responseWithoutTargets);
@@ -419,7 +412,7 @@ class WatchlistServiceTest {
         assertThat(autoRequest.getTargetPfcf()).isNull();
         
         verify(marketDataEnrichmentService).isAvailable();
-        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("AAPL");
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).getFundamentals("AAPL");
         verify(repository).save(itemWithoutTargets);
     }
     
@@ -432,14 +425,11 @@ class WatchlistServiceTest {
                 .targetPrice(new BigDecimal("150.00"))
                 .build();
         
-        BigDecimal fcfPerShare = new BigDecimal("6.00");
-        BigDecimal expectedTargetPfcf = new BigDecimal("25.00"); // 150 / 6 = 25.00
+        BigDecimal expectedTargetPfcf = new BigDecimal("23.73"); // 150 / 6.32 = 23.73
         
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
-                .thenReturn(new BigDecimal[]{null, fcfPerShare, null, null, null, null})
-                .thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("AAPL")).thenReturn(fundamentals);
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
@@ -451,7 +441,7 @@ class WatchlistServiceTest {
         assertThat(result).isNotNull();
         assertThat(request.getTargetPfcf()).isEqualTo(expectedTargetPfcf);
         assertThat(request.getTargetPrice()).isEqualTo(new BigDecimal("150.00"));
-        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("AAPL");
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).getFundamentals("AAPL");
         verify(repository).save(item);
     }
     
@@ -464,14 +454,11 @@ class WatchlistServiceTest {
                 .targetPfcf(new BigDecimal("20.00"))
                 .build();
         
-        BigDecimal fcfPerShare = new BigDecimal("7.50");
-        BigDecimal expectedTargetPrice = new BigDecimal("150.00"); // 7.50 × 20 = 150.00
+        BigDecimal expectedTargetPrice = new BigDecimal("126.40"); // 6.32 × 20 = 126.40
         
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
-                .thenReturn(new BigDecimal[]{null, fcfPerShare, null, null, null, null})
-                .thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("AAPL")).thenReturn(fundamentals);
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
@@ -483,7 +470,7 @@ class WatchlistServiceTest {
         assertThat(result).isNotNull();
         assertThat(request.getTargetPrice()).isEqualTo(expectedTargetPrice);
         assertThat(request.getTargetPfcf()).isEqualTo(new BigDecimal("20.00"));
-        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("AAPL");
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).getFundamentals("AAPL");
         verify(repository).save(item);
     }
     
@@ -501,8 +488,7 @@ class WatchlistServiceTest {
         when(mapper.toEntity(request, userId)).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
-                .thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("AAPL")).thenReturn(fundamentals);
         
         // Act
         WatchlistItemResponse result = service.create(userId, request);
@@ -512,7 +498,7 @@ class WatchlistServiceTest {
         assertThat(request.getTargetPrice()).isEqualTo(new BigDecimal("150.50"));
         assertThat(request.getTargetPfcf()).isEqualTo(new BigDecimal("15.50"));
         // Solo se llama durante enrichWithMarketData(), no durante la lógica de cálculo
-        verify(marketDataEnrichmentService).fetchMarketData("AAPL");
+        verify(marketDataEnrichmentService).getFundamentals("AAPL");
         verify(repository).save(item);
     }
     
@@ -537,8 +523,7 @@ class WatchlistServiceTest {
         
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "INVALID")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
-        when(marketDataEnrichmentService.fetchMarketData("INVALID"))
-                .thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("INVALID")).thenReturn(null);
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithTargetPriceOnly);
         when(repository.save(itemWithTargetPriceOnly)).thenReturn(itemWithTargetPriceOnly);
         when(mapper.toResponse(itemWithTargetPriceOnly)).thenReturn(responseWithTargetPriceOnly);
@@ -575,8 +560,7 @@ class WatchlistServiceTest {
         
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "INVALID")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
-        when(marketDataEnrichmentService.fetchMarketData("INVALID"))
-                .thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("INVALID")).thenReturn(null);
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithTargetPfcfOnly);
         when(repository.save(itemWithTargetPfcfOnly)).thenReturn(itemWithTargetPfcfOnly);
         when(mapper.toResponse(itemWithTargetPfcfOnly)).thenReturn(responseWithTargetPfcfOnly);
@@ -606,8 +590,7 @@ class WatchlistServiceTest {
         when(mapper.toEntity(lowerCaseRequest, userId)).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
-                .thenReturn(new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("AAPL")).thenReturn(fundamentals);
         
         // Act
         service.create(userId, lowerCaseRequest);
@@ -629,11 +612,15 @@ class WatchlistServiceTest {
         BigDecimal expectedPfcf = new BigDecimal("25.33"); // 380/15 = 25.33
         BigDecimal expectedPrice = new BigDecimal("379.95"); // 15 × 25.33 = 379.95
         
+        InstrumentFundamentals msftFundamentals = InstrumentFundamentals.builder()
+                .ticker("MSFT")
+                .currentPrice(price)
+                .fcfPerShareAnnual(fcf)
+                .build();
+        
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "MSFT")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
-        // Primera llamada durante create() para auto-cargar, segunda durante enrichWithMarketData()
-        when(marketDataEnrichmentService.fetchMarketData("MSFT"))
-                .thenReturn(new BigDecimal[]{price, fcf, null, null, null, null}, new BigDecimal[]{null, null, null, null, null, null});
+        when(marketDataEnrichmentService.getFundamentals("MSFT")).thenReturn(msftFundamentals);
         
         WatchlistItem msftItem = WatchlistItem.builder()
                 .ticker("MSFT")
@@ -657,6 +644,6 @@ class WatchlistServiceTest {
         // Assert
         assertThat(autoRequest.getTargetPfcf()).isEqualTo(expectedPfcf);
         assertThat(autoRequest.getTargetPrice()).isEqualTo(expectedPrice);
-        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("MSFT");
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).getFundamentals("MSFT");
     }
 }

@@ -172,6 +172,7 @@ public class InstrumentFundamentalsService {
                 // Growth
                 builder.epsGrowth5Y(getBigDecimal(m, "epsGrowth5Y"));
                 builder.revenueGrowth5Y(getBigDecimal(m, "revenueGrowth5Y"));
+                builder.focfCagr5Y(getBigDecimal(m, "focfCagr5Y"));
 
                 // Fallback FCF calculation if explicit FCF data is missing
                 // Try to calculate from Price / FCF per share ratio (pfcfShareAnnual)

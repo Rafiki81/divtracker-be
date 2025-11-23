@@ -85,6 +85,9 @@ public class InstrumentFundamentals {
     @Column(name = "revenue_growth_5y", precision = 10, scale = 4)
     private BigDecimal revenueGrowth5Y;
 
+    @Column(name = "focf_cagr_5y", precision = 10, scale = 4)
+    private BigDecimal focfCagr5Y;
+
     // Metadata
     @Enumerated(EnumType.STRING)
     @Column(name = "data_quality", length = 20, nullable = false)
