@@ -3,7 +3,6 @@ package com.rafiki18.divtracker_be.dto;
 import java.math.BigDecimal;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -68,8 +67,6 @@ public class WatchlistItemRequest {
     @Schema(description = "Tasa de descuento / costo de capital (WACC) como decimal (ej: 0.10 para 10%)", example = "0.10")
     private BigDecimal discountRate;
     
-    @AssertTrue(message = "Debe especificar al menos targetPrice o targetPfcf")
-    private boolean isValid() {
-        return targetPrice != null || targetPfcf != null;
-    }
+    // Removed validation - will be handled in service layer
+    // to allow creation with just ticker if Finnhub is enabled
 }

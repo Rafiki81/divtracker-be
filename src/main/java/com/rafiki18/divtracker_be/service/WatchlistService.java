@@ -58,6 +58,32 @@ public class WatchlistService {
             throw new DuplicateTickerException(normalizedTicker);
         }
         
+        // Si no se especificó targetPrice ni targetPfcf, intentar cargar datos de Finnhub
+        if (request.getTargetPrice() == null && request.getTargetPfcf() == null) {
+            if (marketDataEnrichmentService.isAvailable()) {
+                log.info("No target values provided for {}, will fetch from Finnhub", normalizedTicker);
+                BigDecimal[] marketData = marketDataEnrichmentService.fetchMarketData(normalizedTicker);
+                BigDecimal currentPrice = marketData[0];
+                BigDecimal fcfPerShare = marketData[1];
+                
+                if (currentPrice != null && fcfPerShare != null) {
+                    // Calcular P/FCF actual como targetPfcf inicial
+                    BigDecimal actualPfcf = currentPrice.divide(fcfPerShare, 2, java.math.RoundingMode.HALF_UP);
+                    request.setTargetPfcf(actualPfcf);
+                    log.info("Auto-set targetPfcf={} for {} based on market data", actualPfcf, normalizedTicker);
+                } else {
+                    log.warn("Could not fetch market data for {}. At least targetPrice or targetPfcf is required.", normalizedTicker);
+                    throw new IllegalArgumentException(
+                        "No se pudieron obtener datos de mercado para " + normalizedTicker + 
+                        ". Debes especificar al menos targetPrice o targetPfcf manualmente.");
+                }
+            } else {
+                log.warn("Finnhub not available and no target values provided for {}", normalizedTicker);
+                throw new IllegalArgumentException(
+                    "Debe especificar al menos targetPrice o targetPfcf cuando Finnhub no está disponible.");
+            }
+        }
+        
         // Crear y guardar el item
         WatchlistItem item = watchlistMapper.toEntity(request, userId);
         WatchlistItem savedItem = watchlistItemRepository.save(item);
