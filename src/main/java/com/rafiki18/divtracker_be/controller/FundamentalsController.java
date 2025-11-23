@@ -72,25 +72,26 @@ public class FundamentalsController {
     }
     
     /**
-     * Convert entity to response DTO.
+     * Convert entity to response DTO - only essential data.
      */
     private FundamentalsResponse toResponse(InstrumentFundamentals fundamentals) {
         return FundamentalsResponse.builder()
                 .ticker(fundamentals.getTicker())
                 .companyName(fundamentals.getCompanyName())
-                .currentPrice(fundamentals.getCurrentPrice())
-                .fcfPerShareTTM(fundamentals.getFcfPerShareTTM())
-                .fcfPerShareAnnual(fundamentals.getFcfPerShareAnnual())
-                .peTTM(fundamentals.getPeTTM())
-                .beta(fundamentals.getBeta())
-                .dividendYield(fundamentals.getDividendYield())
-                .epsTTM(fundamentals.getEpsTTM())
-                .revenueTTM(fundamentals.getRevenueTTM())
-                .sharesOutstanding(fundamentals.getSharesOutstanding())
-                .operatingMargin(fundamentals.getOperatingMargin())
-                .profitMargin(fundamentals.getProfitMargin())
-                .exchange(fundamentals.getExchange())
+                .currency(fundamentals.getCurrency())
                 .sector(fundamentals.getSector())
+                .currentPrice(fundamentals.getCurrentPrice())
+                .peAnnual(fundamentals.getPeAnnual())
+                .beta(fundamentals.getBeta())
+                .debtToEquityRatio(fundamentals.getDebtToEquityRatio())
+                .fcfAnnual(fundamentals.getFcfAnnual())
+                .fcfPerShareAnnual(fundamentals.getFcfPerShareAnnual())
+                .shareOutstanding(fundamentals.getShareOutstanding())
+                .dividendPerShareAnnual(fundamentals.getDividendPerShareAnnual())
+                .dividendYield(fundamentals.getDividendYield())
+                .dividendGrowthRate5Y(fundamentals.getDividendGrowthRate5Y())
+                .epsGrowth5Y(fundamentals.getEpsGrowth5Y())
+                .revenueGrowth5Y(fundamentals.getRevenueGrowth5Y())
                 .dataQuality(fundamentals.getDataQuality().name())
                 .dataSource(fundamentals.getSource().name())
                 .lastUpdatedAt(fundamentals.getLastUpdatedAt())
@@ -98,11 +99,11 @@ public class FundamentalsController {
     }
     
     /**
-     * Response DTO for fundamentals endpoint.
+     * Response DTO for fundamentals endpoint - optimized with essential data only.
      */
     @lombok.Data
     @lombok.Builder
-    @Schema(description = "Fundamentals data cached from Finnhub")
+    @Schema(description = "Essential fundamentals data from Finnhub")
     public static class FundamentalsResponse {
         @Schema(description = "Stock ticker symbol", example = "AAPL")
         private String ticker;
@@ -110,44 +111,47 @@ public class FundamentalsController {
         @Schema(description = "Company name", example = "Apple Inc")
         private String companyName;
         
+        @Schema(description = "Currency", example = "USD")
+        private String currency;
+        
+        @Schema(description = "Business sector", example = "Technology")
+        private String sector;
+        
         @Schema(description = "Current market price", example = "172.15")
         private java.math.BigDecimal currentPrice;
         
-        @Schema(description = "Free Cash Flow per share (TTM)", example = "6.75")
-        private java.math.BigDecimal fcfPerShareTTM;
-        
-        @Schema(description = "Free Cash Flow per share (Annual)", example = "6.50")
-        private java.math.BigDecimal fcfPerShareAnnual;
-        
-        @Schema(description = "Price-to-Earnings ratio (Trailing Twelve Months)", example = "28.50")
-        private java.math.BigDecimal peTTM;
+        @Schema(description = "Price-to-Earnings ratio (Annual)", example = "28.50")
+        private java.math.BigDecimal peAnnual;
         
         @Schema(description = "Beta (volatility vs market)", example = "1.25")
         private java.math.BigDecimal beta;
         
+        @Schema(description = "Debt to Equity ratio", example = "0.6094")
+        private java.math.BigDecimal debtToEquityRatio;
+        
+        @Schema(description = "Free Cash Flow (Annual)", example = "99803000000")
+        private java.math.BigDecimal fcfAnnual;
+        
+        @Schema(description = "Free Cash Flow per share (Annual)", example = "6.50")
+        private java.math.BigDecimal fcfPerShareAnnual;
+        
+        @Schema(description = "Shares outstanding", example = "15550061000")
+        private java.math.BigDecimal shareOutstanding;
+        
+        @Schema(description = "Dividend per share (Annual)", example = "0.96")
+        private java.math.BigDecimal dividendPerShareAnnual;
+        
         @Schema(description = "Dividend yield percentage", example = "0.52")
         private java.math.BigDecimal dividendYield;
         
-        @Schema(description = "Earnings per share (TTM)", example = "6.05")
-        private java.math.BigDecimal epsTTM;
-        
-        @Schema(description = "Total revenue (TTM)", example = "383285000000")
-        private java.math.BigDecimal revenueTTM;
-        
-        @Schema(description = "Shares outstanding", example = "15550061000")
-        private Long sharesOutstanding;
-        
-        @Schema(description = "Operating margin percentage", example = "0.2987")
-        private java.math.BigDecimal operatingMargin;
-        
-        @Schema(description = "Profit margin percentage", example = "0.2531")
-        private java.math.BigDecimal profitMargin;
-        
-        @Schema(description = "Exchange where stock is listed", example = "NASDAQ")
-        private String exchange;
-        
-        @Schema(description = "Business sector", example = "Technology")
-        private String sector;
+        @Schema(description = "Dividend growth rate (5Y)", example = "-2.03")
+        private java.math.BigDecimal dividendGrowthRate5Y;
+
+        @Schema(description = "EPS growth rate (5Y)", example = "36.82")
+        private java.math.BigDecimal epsGrowth5Y;
+
+        @Schema(description = "Revenue growth rate (5Y)", example = "1.91")
+        private java.math.BigDecimal revenueGrowth5Y;
         
         @Schema(description = "Data quality: COMPLETE, PARTIAL, or STALE", example = "COMPLETE")
         private String dataQuality;

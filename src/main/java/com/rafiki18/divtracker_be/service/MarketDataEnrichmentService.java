@@ -26,7 +26,7 @@ public class MarketDataEnrichmentService {
      * Falls back to stale data if Finnhub is unavailable.
      *
      * @param ticker Stock ticker symbol
-     * @return Array with [currentPrice, fcfPerShare, peTTM, beta], or nulls if data unavailable
+     * @return Array with [currentPrice, fcfPerShareAnnual, peAnnual, beta, epsGrowth5Y, revenueGrowth5Y], or nulls if data unavailable
      */
     public BigDecimal[] fetchMarketData(String ticker) {
         log.debug("Fetching market data for {}", ticker);
@@ -34,13 +34,15 @@ public class MarketDataEnrichmentService {
         return fundamentalsService.getFundamentals(ticker)
                 .map(f -> new BigDecimal[]{
                     f.getCurrentPrice(),
-                    f.getBestFcfPerShare(),
-                    f.getPeTTM(),
-                    f.getBeta()
+                    f.getFcfPerShare(),
+                    f.getPeAnnual(),
+                    f.getBeta(),
+                    f.getEpsGrowth5Y(),
+                    f.getRevenueGrowth5Y()
                 })
                 .orElseGet(() -> {
                     log.debug("No market data available for {}", ticker);
-                    return new BigDecimal[]{null, null, null, null};
+                    return new BigDecimal[]{null, null, null, null, null, null};
                 });
     }
     

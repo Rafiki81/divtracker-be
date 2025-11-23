@@ -101,9 +101,9 @@ class FundamentalsRefreshSchedulerTest {
     @Test
     @DisplayName("Should respect max refresh limit per batch")
     void shouldRespectMaxRefreshLimit() {
-        // Given - create 60 stale fundamentals (more than MAX_REFRESHES_PER_RUN = 50)
+        // Given - create 10 stale fundamentals (more than MAX_REFRESHES_PER_RUN = 4)
         List<InstrumentFundamentals> largeStalelist = new java.util.ArrayList<>();
-        for (int i = 1; i <= 60; i++) {
+        for (int i = 1; i <= 10; i++) {
             largeStalelist.add(InstrumentFundamentals.builder()
                     .ticker("TICK" + i)
                     .dataQuality(InstrumentFundamentals.DataQuality.STALE)
@@ -119,8 +119,8 @@ class FundamentalsRefreshSchedulerTest {
         // When
         scheduler.refreshStaleFundamentals();
 
-        // Then - should only refresh 50 (MAX_REFRESHES_PER_RUN)
-        verify(fundamentalsService, times(50)).refreshFundamentals(anyString());
+        // Then - should only refresh 4 (MAX_REFRESHES_PER_RUN)
+        verify(fundamentalsService, times(4)).refreshFundamentals(anyString());
     }
 
     @Test

@@ -94,6 +94,11 @@ bruno-collection/
 │   ├── Create Item - Advanced.bru # Crear con análisis avanzado
 │   ├── Update Item.bru           # Actualizar
 │   └── Delete Item.bru           # Eliminar
+├── Fundamentals/
+│   └── Refresh Fundamentals.bru  # Actualizar datos desde Finnhub
+├── Admin/
+│   ├── Refresh Stale Fundamentals.bru # Job manual de actualización
+│   └── Cleanup Old Fundamentals.bru   # Job manual de limpieza
 ├── Health/
 │   ├── Health Check.bru          # Estado del servidor
 │   └── Info.bru                  # Info de la app

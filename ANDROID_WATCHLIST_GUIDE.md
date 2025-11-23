@@ -1,49 +1,201 @@
-# Guía de Integración Android - Watchlist API
+# 📱 Guía Completa de Integración Android - Watchlist API
 
 ## 📋 Tabla de Contenidos
 
-1. [Descripción General](#descripción-general)
-2. [Data Models](#data-models)
-3. [API Service](#api-service)
-4. [Repository](#repository)
-5. [ViewModel](#viewmodel)
-6. [UI States](#ui-states)
-7. [Ejemplos de Uso en Activities/Fragments](#ejemplos-de-uso)
-8. [Paginación](#paginación)
-9. [Manejo de Errores](#manejo-de-errores)
-10. [Testing](#testing)
-11. [Dependencias](#dependencias)
-12. [URLs de Entorno](#urls-de-entorno)
-13. [Checklist de Implementación](#checklist-de-implementación)
+1. [🔄 Flujos de Datos](#-flujos-de-datos)
+2. [📊 Campos: Usuario vs Automáticos](#-campos-usuario-vs-automáticos)
+3. [📦 Data Models Completos](#-data-models-completos)
+4. [🌐 API Endpoints](#-api-endpoints)
+5. [🗂️ Repository Pattern](#️-repository-pattern)
+6. [🎨 ViewModel y States](#-viewmodel-y-states)
+7. [💡 Ejemplos de Implementación](#-ejemplos-de-implementación)
+8. [📚 Dependencias y Configuración](#-dependencias-y-configuración)
 
 ---
 
-## Descripción General
+## 🔄 Flujos de Datos
 
-La **Watchlist API** permite a los usuarios autenticados gestionar una lista de empresas que desean vigilar, con análisis financiero automático que incluye:
+### Flujo 1: Crear Item (Modo Automático - Recomendado)
 
-- ✅ **DCF (Discounted Cash Flow)**: Valoración intrínseca
-- ✅ **TIR (Internal Rate of Return)**: Rentabilidad esperada
-- ✅ **FCF Yield**: Rendimiento del flujo de caja libre
-- ✅ **Margen de Seguridad**: Diferencia entre precio y valor intrínseco
-- ✅ **Payback Period**: Años para recuperar inversión
-- ✅ **ROI Estimado**: Retorno de inversión proyectado
+```
+Usuario → App Android → Backend → Finnhub API → PostgreSQL → Response
+```
 
-**Base URL**: `/api/v1/watchlist`
+**1. Usuario ingresa:** Solo el ticker (ej: "AAPL")
 
-**Autenticación**: Todos los endpoints requieren JWT token en el header `Authorization: Bearer <token>`
+**2. App envía:**
+```json
+{
+  "ticker": "AAPL"
+}
+```
 
-### 🆕 Creación Automática con Finnhub
+**3. Backend automáticamente:**
+- 🔍 Busca en caché (24h) o llama a Finnhub
+- 📊 Obtiene: precio actual, FCF anual, PE anual, beta, debt-to-equity
+- 🧮 Calcula: P/FCF actual, DCF, TIR, ROI, margen de seguridad
+- 💾 Guarda en PostgreSQL
 
-**Nuevo en v1.1**: Puedes crear items solo con el ticker, sin necesidad de especificar `targetPrice` o `targetPfcf`. El backend:
+**4. Backend responde con 26 campos:**
+```json
+{
+  "id": "uuid",
+  "ticker": "AAPL",
+  "currentPrice": 172.15,       // ⚡ AUTOMÁTICO desde Finnhub
+  "fcfPerShareAnnual": 11.45,   // ⚡ AUTOMÁTICO calculado
+  "actualPfcf": 15.03,          // ⚡ AUTOMÁTICO calculado
+  "dcfFairValue": 195.50,       // ⚡ AUTOMÁTICO calculado
+  "estimatedIRR": 12.50,        // ⚡ AUTOMÁTICO calculado
+  ...
+}
+```
 
-1. 🔍 Obtiene el precio actual de Finnhub
-2. 📊 Obtiene el FCF por acción de Finnhub
-3. 🧮 Calcula el P/FCF actual automáticamente
-4. ✨ Lo establece como `targetPfcf` inicial
-5. 📈 Calcula todas las métricas financieras (DCF, TIR, ROI, etc.)
+### Flujo 2: Actualizar Precio en Tiempo Real (Webhook)
 
-**Requisito**: Finnhub API debe estar configurada en el backend (ver `FINNHUB_SETUP.md`)
+```
+Finnhub → Webhook → market_price_ticks → (NO afecta fundamentals)
+```
+
+**⚠️ IMPORTANTE:** El webhook solo guarda precios históricos, NO actualiza los fundamentals del watchlist.
+
+Para ver precios actualizados en el watchlist:
+- Los fundamentals se refrescan cada 6 horas automáticamente
+- Puedes forzar refresh manual: `POST /api/v1/fundamentals/{ticker}/refresh`
+
+### Flujo 3: Scheduler Automático (Cada 6 horas)
+
+```
+Scheduler → PostgreSQL (busca stale) → Finnhub API → Actualiza fundamentals
+```
+
+**1. Scheduler corre cada 6 horas**
+**2. Busca:** Tickers con fundamentals > 24 horas
+**3. Refresca:** Máximo 50 tickers por ejecución
+**4. Actualiza:** Precio, FCF, PE, todas las métricas calculadas
+
+### Flujo 4: Listar Watchlist
+
+```
+App Android → Backend → PostgreSQL (instrument_fundamentals JOIN watchlist_items)
+```
+
+**1. App solicita:** `GET /api/v1/watchlist?page=0&size=20`
+**2. Backend hace JOIN:**
+- `watchlist_items` (datos del usuario: targetPrice, targetPfcf, notes)
+- `instrument_fundamentals` (datos de mercado actuales: currentPrice, fcfPerShareAnnual)
+**3. Backend calcula en tiempo real:**
+- actualPfcf, fairPriceByPfcf, discountToFairPrice (basados en targets del usuario)
+- dcfFairValue, marginOfSafety, estimatedIRR (basados en parámetros de valoración)
+**4. Retorna:** 26 campos enriquecidos por item
+
+---
+
+## 📊 Campos: Usuario vs Automáticos
+
+### ✍️ Campos Proporcionados por el Usuario (11 campos)
+
+#### Obligatorios (1 campo):
+```kotlin
+ticker: String  // Ej: "AAPL", "MSFT", "GOOGL"
+```
+
+#### Opcionales - Información Básica (2 campos):
+```kotlin
+exchange: String?         // Ej: "NASDAQ", "NYSE" (informativo)
+notes: String?            // Máx 500 caracteres (notas personales)
+```
+
+#### Opcionales - Objetivos de Inversión (3 campos):
+```kotlin
+targetPrice: BigDecimal?        // Ej: 150.00 (precio que consideras justo)
+targetPfcf: BigDecimal?         // Ej: 15.0 (P/FCF que consideras razonable)
+notifyWhenBelowPrice: Boolean?  // true/false (notificación futura)
+```
+
+**💡 Si NO proporcionas targetPrice ni targetPfcf:**
+- Backend calcula automáticamente desde datos actuales
+- targetPfcf = actualPfcf (P/FCF actual del mercado)
+- Puedes actualizarlos después
+
+#### Opcionales - Parámetros de Valoración DCF (3 campos):
+```kotlin
+estimatedFcfGrowthRate: BigDecimal?  // Ej: 0.08 = 8% anual (default: 5%)
+investmentHorizonYears: Int?         // Ej: 5 (años de inversión, default: 5)
+discountRate: BigDecimal?            // Ej: 0.10 = 10% (default: 10%)
+```
+
+**💡 Estos parámetros afectan el cálculo de:**
+- `dcfFairValue` (valor intrínseco por DCF)
+- `marginOfSafety` (margen de seguridad %)
+- `estimatedIRR` (tasa interna de retorno)
+- `estimatedROI` (retorno de inversión proyectado)
+- `paybackPeriod` (años para recuperar inversión)
+
+### ⚡ Campos Calculados Automáticamente (15 campos)
+
+#### Metadata (3 campos):
+```kotlin
+id: UUID                    // ⚡ Generado automáticamente por backend
+userId: UUID                // ⚡ Extraído del JWT token
+createdAt: LocalDateTime    // ⚡ Timestamp de creación
+updatedAt: LocalDateTime    // ⚡ Timestamp de última actualización
+```
+
+#### Datos de Mercado desde Finnhub (4 campos):
+```kotlin
+currentPrice: BigDecimal?       // ⚡ Precio actual desde Finnhub quote API
+fcfPerShareAnnual: BigDecimal?  // ⚡ FCF anual por acción (calculado: operatingCashFlow + capEx / shares)
+peAnnual: BigDecimal?           // ⚡ Price-to-Earnings anual desde Finnhub metrics API
+beta: BigDecimal?               // ⚡ Volatilidad vs mercado desde Finnhub metrics API
+```
+
+**🔄 Actualización:** Cada 6 horas automáticamente, o manual con `POST /api/v1/fundamentals/{ticker}/refresh`
+
+#### Métricas Básicas Calculadas (3 campos):
+```kotlin
+actualPfcf: BigDecimal?        // ⚡ Calculado: currentPrice / fcfPerShareAnnual
+fairPriceByPfcf: BigDecimal?   // ⚡ Calculado: targetPfcf * fcfPerShareAnnual
+discountToFairPrice: BigDecimal?  // ⚡ Calculado: (fairPrice - currentPrice) / fairPrice * 100
+```
+
+#### Análisis de Valoración (2 campos):
+```kotlin
+deviationFromTargetPrice: BigDecimal?  // ⚡ Calculado: (currentPrice - targetPrice) / targetPrice * 100
+undervalued: Boolean?                  // ⚡ Calculado: currentPrice < fairPriceByPfcf && actualPfcf < targetPfcf
+```
+
+#### Métricas Avanzadas DCF (5 campos):
+```kotlin
+fcfYield: BigDecimal?          // ⚡ Calculado: (fcfPerShareAnnual / currentPrice) * 100
+dcfFairValue: BigDecimal?      // ⚡ Calculado: DCF con Gordon Growth Model
+marginOfSafety: BigDecimal?    // ⚡ Calculado: (dcfFairValue - currentPrice) / dcfFairValue * 100
+paybackPeriod: BigDecimal?     // ⚡ Calculado: años para recuperar inversión con FCF creciente
+estimatedROI: BigDecimal?      // ⚡ Calculado: (apreciación capital + FCF acumulado) / inversión inicial * 100
+estimatedIRR: BigDecimal?      // ⚡ Calculado: TIR con método Newton-Raphson (100 iteraciones max)
+```
+
+**💡 Fórmulas Simplificadas:**
+
+```
+actualPfcf = currentPrice / fcfPerShareAnnual
+
+fairPriceByPfcf = targetPfcf * fcfPerShareAnnual
+
+fcfYield = (fcfPerShareAnnual / currentPrice) * 100
+
+dcfFairValue = Σ(FCF_t / (1+r)^t) + TerminalValue
+  donde:
+    FCF_t = fcfPerShareAnnual * (1 + growthRate)^t
+    TerminalValue = FCF_final * (1+growthRate) / (discountRate - growthRate) / (1+discountRate)^horizon
+
+marginOfSafety = (dcfFairValue - currentPrice) / dcfFairValue * 100
+
+undervalued = currentPrice < fairPriceByPfcf && actualPfcf < targetPfcf
+```
+
+---
+
+## 📦 Data Models Completos
 
 ---
 

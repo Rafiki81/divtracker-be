@@ -1,0 +1,41 @@
+meta {
+  name: Cleanup Old Fundamentals
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/admin/cleanup-old-fundamentals
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Cleanup Old Fundamentals (Admin)
+  
+  Dispara manualmente el job de limpieza de fundamentals antiguos.
+  
+  ## Comportamiento
+  
+  - Elimina registros de fundamentals que no se han actualizado en más de 30 días.
+  - Ayuda a mantener la base de datos limpia de tickers que ya no se siguen.
+  - Se ejecuta de forma asíncrona.
+  
+  ## Respuesta
+  
+  - 200 OK: El job se inició correctamente.
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response confirms job started", function() {
+    expect(res.getBody()).to.contain("started");
+  });
+}

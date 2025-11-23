@@ -61,13 +61,16 @@ public class WatchlistService {
         // Obtener datos de mercado (siempre, para calcular valores faltantes)
         BigDecimal currentPrice = null;
         BigDecimal fcfPerShare = null;
+        BigDecimal epsGrowth5Y = null;
         
         if (marketDataEnrichmentService.isAvailable()) {
             BigDecimal[] marketData = marketDataEnrichmentService.fetchMarketData(normalizedTicker);
             currentPrice = marketData[0];  // Current price
             fcfPerShare = marketData[1];   // FCF per share
-            // marketData[2] = PE TTM (not used here yet)
-            // marketData[3] = Beta (not used here yet)
+            // marketData[2] = PE TTM
+            // marketData[3] = Beta
+            epsGrowth5Y = marketData[4];   // EPS Growth 5Y
+            // marketData[5] = Revenue Growth 5Y
         }
         
         // Caso 1: No se especificó ningún valor → Intentar auto-calcular con datos de mercado
@@ -125,6 +128,23 @@ public class WatchlistService {
         else {
             log.info("Using user-provided targetPrice={} and targetPfcf={} for {}", 
                 request.getTargetPrice(), request.getTargetPfcf(), normalizedTicker);
+        }
+
+        // Auto-set estimated growth rate if not provided
+        if (request.getEstimatedFcfGrowthRate() == null && epsGrowth5Y != null) {
+            // Convert percentage (e.g. 36.82) to decimal (0.3682)
+            // Cap at reasonable limits (e.g. max 15% to be conservative)
+            BigDecimal growthDecimal = epsGrowth5Y.divide(new BigDecimal("100"), 4, java.math.RoundingMode.HALF_UP);
+            BigDecimal maxGrowth = new BigDecimal("0.15");
+            
+            if (growthDecimal.compareTo(maxGrowth) > 0) {
+                request.setEstimatedFcfGrowthRate(maxGrowth);
+            } else if (growthDecimal.compareTo(BigDecimal.ZERO) > 0) {
+                request.setEstimatedFcfGrowthRate(growthDecimal);
+            } else {
+                request.setEstimatedFcfGrowthRate(new BigDecimal("0.05")); // Default 5%
+            }
+            log.info("Auto-set estimated growth rate to {} for {}", request.getEstimatedFcfGrowthRate(), normalizedTicker);
         }
         
         // Crear y guardar el item

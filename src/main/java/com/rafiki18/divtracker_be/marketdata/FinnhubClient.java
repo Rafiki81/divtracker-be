@@ -42,58 +42,103 @@ public class FinnhubClient {
     }
 
     /**
-     * Fetch FCF per share by calculating: freeCashFlowTTM / shareOutstanding.
-     * Finnhub doesn't provide freeCashFlowPerShareTTM directly for most tickers,
-     * so we calculate it manually using the total FCF and shares outstanding.
+     * Fetch cash flow financials from Finnhub.
+     * Returns the most recent quarterly data containing operatingCashFlow and capitalExpenditure.
      * 
      * @param ticker Stock ticker symbol
-     * @return FCF per share (TTM), or empty if data unavailable
+     * @param frequency "annual" or "quarterly" (defaults to quarterly for most recent data)
+     * @return Map containing cash flow data, or empty if not found
      */
-    public Optional<BigDecimal> fetchFreeCashFlowPerShare(String ticker) {
-        // Fetch metrics to get freeCashFlowTTM
-        Optional<Map<String, Object>> metricsResponse = fetchMap(ticker, "metrics", builder -> builder
-                .path("/stock/metric")
+    public Optional<Map<String, Object>> fetchCashFlowFinancials(String ticker, String frequency) {
+        Optional<Map<String, Object>> result = fetchMap(ticker, "financials-cf", builder -> builder
+                .path("/stock/financials")
                 .queryParam("symbol", ticker)
-                .queryParam("metric", "all")
+                .queryParam("statement", "cf")
+                .queryParam("freq", frequency)
                 .queryParam("token", properties.getApiKey())
                 .build());
         
-        // Fetch profile to get shareOutstanding
-        Optional<Map<String, Object>> profileResponse = fetchMap(ticker, "profile", builder -> builder
-                .path("/stock/profile2")
-                .queryParam("symbol", ticker)
-                .queryParam("token", properties.getApiKey())
-                .build());
+        if (result.isPresent()) {
+            log.info("Finnhub cash flow financials for {} ({}): {}", ticker, frequency, result.get());
+        } else {
+            log.warn("No cash flow financials returned from Finnhub for {} ({})", ticker, frequency);
+        }
         
-        if (metricsResponse.isEmpty() || profileResponse.isEmpty()) {
-            log.debug("Cannot calculate FCF per share for {}: missing metrics or profile data", ticker);
+        return result;
+    }
+    
+    /**
+     * Calculate FCF and FCF per share from cash flow statement.
+     * 
+     * FCF = Operating Cash Flow - Capital Expenditure
+     * FCF per Share = FCF / Shares Outstanding
+     * 
+     * @param ticker Stock ticker symbol
+     * @return Map with "fcf" and "fcfPerShare" keys, or empty if data unavailable
+     */
+    public Optional<Map<String, BigDecimal>> calculateFCF(String ticker) {
+        // Fetch annual cash flow data (more stable, eliminates seasonality)
+        Optional<Map<String, Object>> cfData = fetchCashFlowFinancials(ticker, "annual");
+        
+        if (cfData.isEmpty()) {
+            log.debug("No cash flow data available for {}", ticker);
             return Optional.empty();
         }
         
-        // Extract freeCashFlowTTM from metrics
-        Optional<BigDecimal> fcfTTM = Optional.ofNullable(metricsResponse.get().get("metric"))
-                .filter(Map.class::isInstance)
-                .map(raw -> (Map<?, ?>) raw)
-                .flatMap(metric -> extractDecimal(metric.get("freeCashFlowTTM")));
-        
-        // Extract shareOutstanding from profile
-        Optional<BigDecimal> sharesOutstanding = extractDecimal(profileResponse.get().get("shareOutstanding"));
-        
-        // Calculate FCF per share = freeCashFlowTTM / shareOutstanding
-        if (fcfTTM.isPresent() && sharesOutstanding.isPresent() 
-                && sharesOutstanding.get().compareTo(BigDecimal.ZERO) > 0) {
-            
-            BigDecimal fcfPerShare = fcfTTM.get().divide(sharesOutstanding.get(), 4, java.math.RoundingMode.HALF_UP);
-            
-            log.debug("Calculated FCF per share for {}: freeCashFlowTTM={} / shareOutstanding={} = {}", 
-                    ticker, fcfTTM.get(), sharesOutstanding.get(), fcfPerShare);
-            
-            return fcfPerShare.compareTo(BigDecimal.ZERO) > 0 ? Optional.of(fcfPerShare) : Optional.empty();
+        // Extract financials array
+        Object financialsObj = cfData.get().get("financials");
+        if (!(financialsObj instanceof List<?> financialsList) || financialsList.isEmpty()) {
+            log.debug("No financials array in cash flow data for {}", ticker);
+            return Optional.empty();
         }
         
-        log.debug("Cannot calculate FCF per share for {}: fcfTTM={}, sharesOutstanding={}", 
-                ticker, fcfTTM.orElse(null), sharesOutstanding.orElse(null));
-        return Optional.empty();
+        // Get most recent annual data (first element)
+        if (!(financialsList.get(0) instanceof Map<?, ?> latestAnnual)) {
+            log.debug("Invalid financials data format for {}", ticker);
+            return Optional.empty();
+        }
+        
+        // Extract operating cash flow and capex
+        Optional<BigDecimal> operatingCashFlow = extractDecimal(latestAnnual.get("operatingCashFlow"));
+        Optional<BigDecimal> capex = extractDecimal(latestAnnual.get("capitalExpenditure"));
+        
+        if (operatingCashFlow.isEmpty() || capex.isEmpty()) {
+            log.debug("Missing operatingCashFlow or capitalExpenditure for {}", ticker);
+            return Optional.empty();
+        }
+        
+        // Calculate FCF = Operating Cash Flow - Capital Expenditure
+        // Note: capex is usually negative in financial statements
+        BigDecimal fcf = operatingCashFlow.get().add(capex.get());
+        
+        log.info("Calculated FCF for {}: {} - ({}) = {}", 
+                ticker, operatingCashFlow.get(), capex.get(), fcf);
+        
+        // Fetch profile to get shares outstanding
+        Optional<Map<String, Object>> profile = fetchCompanyProfile(ticker);
+        
+        if (profile.isEmpty()) {
+            log.debug("No profile data to calculate FCF per share for {}", ticker);
+            return Optional.of(Map.of("fcf", fcf));
+        }
+        
+        Optional<BigDecimal> sharesOutstanding = extractDecimal(profile.get().get("shareOutstanding"));
+        
+        if (sharesOutstanding.isEmpty() || sharesOutstanding.get().compareTo(BigDecimal.ZERO) <= 0) {
+            log.debug("Invalid or missing shareOutstanding for {}", ticker);
+            return Optional.of(Map.of("fcf", fcf));
+        }
+        
+        // Calculate FCF per share
+        BigDecimal fcfPerShare = fcf.divide(sharesOutstanding.get(), 4, java.math.RoundingMode.HALF_UP);
+        
+        log.info("Calculated FCF per share for {}: {} / {} = {}", 
+                ticker, fcf, sharesOutstanding.get(), fcfPerShare);
+        
+        return Optional.of(Map.of(
+            "fcf", fcf,
+            "fcfPerShare", fcfPerShare
+        ));
     }
 
     /**
@@ -124,12 +169,13 @@ public class FinnhubClient {
     }
 
     /**
-     * Fetch all metrics for a ticker (PE, beta, margins, etc.).
+     * Fetch essential ratios/metrics for a ticker (PE, beta, D/E ratio).
+     * Only fetches the minimum data needed for valuation analysis.
      * 
      * @param ticker Stock ticker symbol
-     * @return Map containing all metrics, or empty if not found
+     * @return Map containing metrics with only the essential ratios
      */
-    public Optional<Map<String, Object>> fetchAllMetrics(String ticker) {
+    public Optional<Map<String, Object>> fetchEssentialMetrics(String ticker) {
         Optional<Map<String, Object>> result = fetchMap(ticker, "metrics", builder -> builder
                 .path("/stock/metric")
                 .queryParam("symbol", ticker)
@@ -138,18 +184,13 @@ public class FinnhubClient {
                 .build());
         
         if (result.isPresent()) {
-            log.info("Finnhub metrics FULL RESPONSE for {}: {}", ticker, result.get());
             Object metricObj = result.get().get("metric");
             if (metricObj instanceof Map<?, ?> metrics) {
-                log.info("Finnhub metrics INNER 'metric' object for {}: {}", ticker, metrics);
-                log.debug("Finnhub metrics for {}: fcfAnnual={}, fcfTTM={}, pfcfShareTTM={}, peTTM={}, beta={}, shareOutstanding={}", 
+                log.debug("Finnhub essential metrics for {}: peAnnual={}, beta={}, debtToEquity={}", 
                         ticker,
-                        metrics.get("freeCashFlowAnnual"),
-                        metrics.get("freeCashFlowTTM"),
-                        metrics.get("pfcfShareTTM"),
-                        metrics.get("peTTM"),
+                        metrics.get("peAnnual"),
                         metrics.get("beta"),
-                        metrics.get("shareOutstanding"));
+                        metrics.get("totalDebt/totalEquityQuarterly"));
             } else {
                 log.warn("Metrics response for {} has no 'metric' map", ticker);
             }
@@ -158,6 +199,14 @@ public class FinnhubClient {
         }
         
         return result;
+    }
+    
+    /**
+     * @deprecated Use fetchEssentialMetrics() instead. This method fetches too much unnecessary data.
+     */
+    @Deprecated(since = "2025-11-23", forRemoval = true)
+    public Optional<Map<String, Object>> fetchAllMetrics(String ticker) {
+        return fetchEssentialMetrics(ticker);
     }
 
     /**

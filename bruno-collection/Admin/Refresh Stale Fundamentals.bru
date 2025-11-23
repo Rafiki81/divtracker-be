@@ -1,0 +1,41 @@
+meta {
+  name: Refresh Stale Fundamentals
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/admin/refresh-fundamentals
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  # Refresh Stale Fundamentals (Admin)
+  
+  Dispara manualmente el job programado para actualizar fundamentals obsoletos (> 24h).
+  
+  ## Comportamiento
+  
+  - Busca hasta 50 tickers con datos "STALE" (más de 24h sin actualizar).
+  - Actualiza sus datos desde Finnhub.
+  - Se ejecuta de forma asíncrona (no bloquea la respuesta).
+  
+  ## Respuesta
+  
+  - 200 OK: El job se inició correctamente.
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response confirms job started", function() {
+    expect(res.getBody()).to.contain("started");
+  });
+}

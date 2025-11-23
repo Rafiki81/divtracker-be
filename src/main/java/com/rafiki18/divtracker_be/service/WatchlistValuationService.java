@@ -30,7 +30,8 @@ public class WatchlistValuationService {
         String ticker = response.getTicker();
 
         Optional<BigDecimal> currentPrice = finnhubClient.fetchCurrentPrice(ticker);
-        Optional<BigDecimal> fcfPerShare = finnhubClient.fetchFreeCashFlowPerShare(ticker);
+        Optional<BigDecimal> fcfPerShare = finnhubClient.calculateFCF(ticker)
+                .map(fcfData -> fcfData.get("fcfPerShare"));
 
         currentPrice.ifPresent(response::setCurrentPrice);
         fcfPerShare.ifPresent(response::setFreeCashFlowPerShare);

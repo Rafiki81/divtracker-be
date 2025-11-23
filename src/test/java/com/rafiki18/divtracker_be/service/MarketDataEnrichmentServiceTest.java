@@ -36,9 +36,11 @@ class MarketDataEnrichmentServiceTest {
                 .ticker("AAPL")
                 .companyName("Apple Inc.")
                 .currentPrice(new BigDecimal("173.50"))
-                .fcfPerShareTTM(new BigDecimal("6.32"))
-                .peTTM(new BigDecimal("27.45"))
+                .fcfPerShareAnnual(new BigDecimal("6.32"))
+                .peAnnual(new BigDecimal("27.45"))
                 .beta(new BigDecimal("1.29"))
+                .epsGrowth5Y(new BigDecimal("15.50"))
+                .revenueGrowth5Y(new BigDecimal("10.20"))
                 .dataQuality(InstrumentFundamentals.DataQuality.COMPLETE)
                 .source(InstrumentFundamentals.DataSource.FINNHUB)
                 .lastUpdatedAt(LocalDateTime.now())
@@ -55,11 +57,13 @@ class MarketDataEnrichmentServiceTest {
         BigDecimal[] result = enrichmentService.fetchMarketData("AAPL");
 
         // Then
-        assertThat(result).hasSize(4);
+        assertThat(result).hasSize(6);
         assertThat(result[0]).isEqualByComparingTo("173.50"); // price
         assertThat(result[1]).isEqualByComparingTo("6.32");   // fcf
         assertThat(result[2]).isEqualByComparingTo("27.45");  // pe
         assertThat(result[3]).isEqualByComparingTo("1.29");   // beta
+        assertThat(result[4]).isEqualByComparingTo("15.50");  // eps growth
+        assertThat(result[5]).isEqualByComparingTo("10.20");  // revenue growth
         
         verify(fundamentalsService).getFundamentals("AAPL");
     }
@@ -74,11 +78,13 @@ class MarketDataEnrichmentServiceTest {
         BigDecimal[] result = enrichmentService.fetchMarketData("INVALID");
 
         // Then
-        assertThat(result).hasSize(4);
+        assertThat(result).hasSize(6);
         assertThat(result[0]).isNull();
         assertThat(result[1]).isNull();
         assertThat(result[2]).isNull();
         assertThat(result[3]).isNull();
+        assertThat(result[4]).isNull();
+        assertThat(result[5]).isNull();
         
         verify(fundamentalsService).getFundamentals("INVALID");
     }
@@ -90,8 +96,8 @@ class MarketDataEnrichmentServiceTest {
         InstrumentFundamentals partialFundamentals = InstrumentFundamentals.builder()
                 .ticker("PARTIAL")
                 .currentPrice(new BigDecimal("100.00"))
-                .fcfPerShareTTM(new BigDecimal("5.00"))
-                // Missing PE and beta
+                .fcfPerShareAnnual(new BigDecimal("5.00"))
+                // Missing PE, beta, and growth metrics
                 .dataQuality(InstrumentFundamentals.DataQuality.PARTIAL)
                 .lastUpdatedAt(LocalDateTime.now())
                 .build();
@@ -102,11 +108,13 @@ class MarketDataEnrichmentServiceTest {
         BigDecimal[] result = enrichmentService.fetchMarketData("PARTIAL");
 
         // Then
-        assertThat(result).hasSize(4);
+        assertThat(result).hasSize(6);
         assertThat(result[0]).isEqualByComparingTo("100.00");
         assertThat(result[1]).isEqualByComparingTo("5.00");
         assertThat(result[2]).isNull(); // PE missing
         assertThat(result[3]).isNull(); // beta missing
+        assertThat(result[4]).isNull(); // eps growth missing
+        assertThat(result[5]).isNull(); // revenue growth missing
     }
 
     @Test
@@ -116,9 +124,8 @@ class MarketDataEnrichmentServiceTest {
         InstrumentFundamentals fundamentalsWithBothFcf = InstrumentFundamentals.builder()
                 .ticker("MSFT")
                 .currentPrice(new BigDecimal("379.95"))
-                .fcfPerShareTTM(new BigDecimal("9.12"))
-                .fcfPerShareAnnual(new BigDecimal("8.50"))
-                .peTTM(new BigDecimal("35.21"))
+                .fcfPerShareAnnual(new BigDecimal("9.12"))
+                .peAnnual(new BigDecimal("35.21"))
                 .beta(new BigDecimal("0.89"))
                 .dataQuality(InstrumentFundamentals.DataQuality.COMPLETE)
                 .lastUpdatedAt(LocalDateTime.now())
@@ -195,8 +202,8 @@ class MarketDataEnrichmentServiceTest {
         InstrumentFundamentals staleFundamentals = InstrumentFundamentals.builder()
                 .ticker("STALE")
                 .currentPrice(new BigDecimal("50.00"))
-                .fcfPerShareTTM(new BigDecimal("2.50"))
-                .peTTM(new BigDecimal("20.00"))
+                .fcfPerShareAnnual(new BigDecimal("2.50"))
+                .peAnnual(new BigDecimal("20.00"))
                 .beta(new BigDecimal("1.15"))
                 .dataQuality(InstrumentFundamentals.DataQuality.STALE)
                 .lastUpdatedAt(LocalDateTime.now().minusDays(2))
@@ -208,11 +215,13 @@ class MarketDataEnrichmentServiceTest {
         BigDecimal[] result = enrichmentService.fetchMarketData("STALE");
 
         // Then - Should still return stale data (better than nothing)
-        assertThat(result).hasSize(4);
+        assertThat(result).hasSize(6);
         assertThat(result[0]).isEqualByComparingTo("50.00");
         assertThat(result[1]).isEqualByComparingTo("2.50");
         assertThat(result[2]).isEqualByComparingTo("20.00");
         assertThat(result[3]).isEqualByComparingTo("1.15");
+        assertThat(result[4]).isNull();
+        assertThat(result[5]).isNull();
     }
 
     @Test

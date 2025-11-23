@@ -121,10 +121,11 @@ public class InstrumentFundamentalsService {
         log.debug("Fetching fundamentals from Finnhub for {}", ticker);
 
         try {
-            // Fetch all data in parallel
+            // Fetch all data
             Optional<Map<String, Object>> profile = finnhubClient.fetchCompanyProfile(ticker);
             Optional<Map<String, Object>> quote = finnhubClient.fetchQuote(ticker);
-            Optional<Map<String, Object>> metricsResponse = finnhubClient.fetchAllMetrics(ticker);
+            Optional<Map<String, Object>> metricsResponse = finnhubClient.fetchEssentialMetrics(ticker);
+            Optional<Map<String, BigDecimal>> fcfData = finnhubClient.calculateFCF(ticker);
 
             // Extract metrics map
             Optional<Map<?, ?>> metrics = metricsResponse
@@ -141,78 +142,72 @@ public class InstrumentFundamentalsService {
             // Profile data
             profile.ifPresent(p -> {
                 builder.companyName(getString(p, "name"));
-                builder.exchange(getString(p, "exchange"));
                 builder.currency(getString(p, "currency"));
                 builder.sector(getString(p, "finnhubIndustry"));
-                builder.sharesOutstanding(getLong(p, "shareOutstanding"));
-                builder.marketCapitalization(getBigDecimal(p, "marketCapitalization"));
+                builder.shareOutstanding(getBigDecimal(p, "shareOutstanding"));
             });
 
-            // Quote data
+            // Quote data - only current price
+            BigDecimal currentPrice = quote.map(q -> getBigDecimal(q, "c")).orElse(null);
             quote.ifPresent(q -> {
                 builder.currentPrice(getBigDecimal(q, "c"));
-                builder.priceChange(getBigDecimal(q, "d"));
-                builder.priceChangePercent(getBigDecimal(q, "dp"));
-                builder.previousClose(getBigDecimal(q, "pc"));
-                builder.high52Week(getBigDecimal(q, "h"));
-                builder.low52Week(getBigDecimal(q, "l"));
             });
 
-            // Metrics data
+            // Metrics data - only essential ratios
             metrics.ifPresent(m -> {
                 // Valuation
-                builder.peTTM(getBigDecimal(m, "peTTM"));
-                builder.priceToBook(getBigDecimal(m, "pbAnnual"));
-                builder.priceToSales(getBigDecimal(m, "psAnnual"));
-
+                builder.peAnnual(getBigDecimal(m, "peAnnual"));
+                
                 // Risk
                 builder.beta(getBigDecimal(m, "beta"));
-
-                // Profitability
-                builder.epsTTM(getBigDecimal(m, "epsTTM"));
-                builder.operatingMargin(getBigDecimal(m, "operatingMarginTTM"));
-                builder.profitMargin(getBigDecimal(m, "netProfitMarginTTM"));
-                builder.roe(getBigDecimal(m, "roeTTM"));
-                builder.roa(getBigDecimal(m, "roaTTM"));
-
+                
+                // Debt
+                builder.debtToEquityRatio(getBigDecimal(m, "totalDebt/totalEquityQuarterly"));
+                
                 // Dividends
-                builder.dividendYield(getBigDecimal(m, "dividendYieldIndicatedAnnual"));
-                builder.dividendPerShare(getBigDecimal(m, "dividendPerShareAnnual"));
-                builder.payoutRatio(getBigDecimal(m, "payoutRatioAnnual"));
+                builder.dividendPerShareAnnual(getBigDecimal(m, "dividendPerShareAnnual"));
+                builder.dividendYield(getBigDecimal(m, "currentDividendYieldTTM"));
+                builder.dividendGrowthRate5Y(getBigDecimal(m, "dividendGrowthRate5Y"));
+
+                // Growth
+                builder.epsGrowth5Y(getBigDecimal(m, "epsGrowth5Y"));
+                builder.revenueGrowth5Y(getBigDecimal(m, "revenueGrowth5Y"));
+
+                // Fallback FCF calculation if explicit FCF data is missing
+                // Try to calculate from Price / FCF per share ratio (pfcfShareAnnual)
+                BigDecimal pfcfShareAnnual = getBigDecimal(m, "pfcfShareAnnual");
+                if (currentPrice != null && pfcfShareAnnual != null && pfcfShareAnnual.compareTo(BigDecimal.ZERO) != 0) {
+                    try {
+                        BigDecimal calculatedFcfPerShare = currentPrice.divide(pfcfShareAnnual, 4, java.math.RoundingMode.HALF_UP);
+                        builder.fcfPerShareAnnual(calculatedFcfPerShare);
+                        log.debug("Calculated fallback FCF per share for {}: {} / {} = {}", 
+                                ticker, currentPrice, pfcfShareAnnual, calculatedFcfPerShare);
+                        
+                        // Also try to calculate total FCF if shares outstanding is available
+                        BigDecimal shares = profile.map(p -> getBigDecimal(p, "shareOutstanding")).orElse(null);
+                        if (shares != null) {
+                            BigDecimal calculatedFcfTotal = calculatedFcfPerShare.multiply(shares);
+                            builder.fcfAnnual(calculatedFcfTotal);
+                        }
+                    } catch (Exception e) {
+                        log.warn("Failed to calculate fallback FCF: {}", e.getMessage());
+                    }
+                }
             });
 
-            // Calculate FCF per share manually (Finnhub doesn't provide these fields directly)
-            // FCF per share = freeCashFlow / shareOutstanding
-            profile.ifPresent(p -> {
-                Long sharesOutstanding = getLong(p, "shareOutstanding");
-                if (sharesOutstanding != null && sharesOutstanding > 0) {
-                    metrics.ifPresent(m -> {
-                        // FCF TTM per share
-                        BigDecimal fcfTTM = getBigDecimal(m, "freeCashFlowTTM");
-                        if (fcfTTM != null) {
-                            BigDecimal fcfPerShareTTM = fcfTTM.divide(
-                                BigDecimal.valueOf(sharesOutstanding), 
-                                4, 
-                                java.math.RoundingMode.HALF_UP
-                            );
-                            builder.fcfPerShareTTM(fcfPerShareTTM);
-                            log.debug("Calculated fcfPerShareTTM for {}: {} / {} = {}", 
-                                ticker, fcfTTM, sharesOutstanding, fcfPerShareTTM);
-                        }
-                        
-                        // FCF Annual per share
-                        BigDecimal fcfAnnual = getBigDecimal(m, "freeCashFlowAnnual");
-                        if (fcfAnnual != null) {
-                            BigDecimal fcfPerShareAnnual = fcfAnnual.divide(
-                                BigDecimal.valueOf(sharesOutstanding), 
-                                4, 
-                                java.math.RoundingMode.HALF_UP
-                            );
-                            builder.fcfPerShareAnnual(fcfPerShareAnnual);
-                            log.debug("Calculated fcfPerShareAnnual for {}: {} / {} = {}", 
-                                ticker, fcfAnnual, sharesOutstanding, fcfPerShareAnnual);
-                        }
-                    });
+            // FCF data from cash flow statement (annual)
+            fcfData.ifPresent(fcf -> {
+                BigDecimal fcfTotal = fcf.get("fcf");
+                BigDecimal fcfPerShare = fcf.get("fcfPerShare");
+                
+                if (fcfTotal != null) {
+                    builder.fcfAnnual(fcfTotal);
+                    log.debug("FCF annual for {}: {}", ticker, fcfTotal);
+                }
+                
+                if (fcfPerShare != null) {
+                    builder.fcfPerShareAnnual(fcfPerShare);
+                    log.debug("FCF per share annual for {}: {}", ticker, fcfPerShare);
                 }
             });
 
@@ -221,16 +216,15 @@ public class InstrumentFundamentalsService {
             // Determine data quality
             if (fundamentals.hasMinimumData()) {
                 fundamentals.setDataQuality(DataQuality.COMPLETE);
-                log.info("Complete fundamentals for {}: currentPrice={}, fcfPerShare={}", 
+                log.info("Complete fundamentals for {}: currentPrice={}, fcfPerShareAnnual={}", 
                         ticker, 
                         fundamentals.getCurrentPrice(),
-                        fundamentals.getBestFcfPerShare());
+                        fundamentals.getFcfPerShare());
             } else {
                 fundamentals.setDataQuality(DataQuality.PARTIAL);
-                log.warn("Fundamentals for {} are incomplete - Missing required fields: currentPrice={}, fcfPerShareTTM={}, fcfPerShareAnnual={}", 
+                log.warn("Fundamentals for {} are incomplete - Missing required fields: currentPrice={}, fcfPerShareAnnual={}", 
                         ticker,
                         fundamentals.getCurrentPrice(),
-                        fundamentals.getFcfPerShareTTM(),
                         fundamentals.getFcfPerShareAnnual());
             }
 
@@ -261,15 +255,7 @@ public class InstrumentFundamentalsService {
      */
     public Optional<BigDecimal> getFcfPerShare(String ticker) {
         return getFundamentals(ticker)
-                .map(InstrumentFundamentals::getBestFcfPerShare);
-    }
-
-    /**
-     * Get PE ratio from cached fundamentals.
-     */
-    public Optional<BigDecimal> getPE(String ticker) {
-        return getFundamentals(ticker)
-                .map(InstrumentFundamentals::getPeTTM);
+                .map(InstrumentFundamentals::getFcfPerShare);
     }
 
     /**
@@ -291,29 +277,13 @@ public class InstrumentFundamentalsService {
         if (value == null) {
             return null;
         }
-        if (value instanceof Number) {
-            return BigDecimal.valueOf(((Number) value).doubleValue());
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
         }
         try {
             return new BigDecimal(value.toString());
         } catch (NumberFormatException e) {
             log.debug("Cannot parse {} as BigDecimal: {}", key, value);
-            return null;
-        }
-    }
-
-    private Long getLong(Map<?, ?> map, String key) {
-        Object value = map.get(key);
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Number) {
-            return ((Number) value).longValue();
-        }
-        try {
-            return Long.parseLong(value.toString());
-        } catch (NumberFormatException e) {
-            log.debug("Cannot parse {} as Long: {}", key, value);
             return null;
         }
     }

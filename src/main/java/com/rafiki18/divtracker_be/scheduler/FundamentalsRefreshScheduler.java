@@ -15,7 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * Scheduled job to refresh stale fundamentals data.
- * Runs every 6 hours to ensure cached data stays reasonably fresh.
+ * Runs daily to ensure cached data stays reasonably fresh.
  */
 @Component
 @RequiredArgsConstructor
@@ -26,16 +26,16 @@ public class FundamentalsRefreshScheduler {
     private final InstrumentFundamentalsService fundamentalsService;
     
     // Rate limiting: max refreshes per batch (Finnhub: 60 calls/minute)
-    private static final int MAX_REFRESHES_PER_RUN = 50;
+    private static final int MAX_REFRESHES_PER_RUN = 4;
     
     /**
-     * Refresh stale fundamentals every 6 hours.
+     * Refresh stale fundamentals daily at 4 AM.
      * Prioritizes instruments updated longest ago.
      * Respects API rate limits by batching.
      */
-    @Scheduled(cron = "0 0 */6 * * *") // Every 6 hours at minute 0
+    @Scheduled(cron = "0 0 4 * * *") // Daily at 4 AM
     public void refreshStaleFundamentals() {
-        log.info("Starting scheduled fundamentals refresh");
+        log.info("Starting scheduled fundamentals refresh (Daily at 4 AM)");
         
         try {
             LocalDateTime threshold = LocalDateTime.now().minusHours(24);

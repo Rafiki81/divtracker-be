@@ -1,0 +1,54 @@
+meta {
+  name: Refresh Fundamentals
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/fundamentals/{{ticker}}/refresh
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+vars:pre-request {
+  ticker: AAPL
+}
+
+docs {
+  # Refresh Fundamentals
+  
+  Fuerza la actualización de los datos fundamentales de una empresa desde Finnhub.
+  
+  ## Uso
+  
+  - Reemplaza `{{ticker}}` con el símbolo de la empresa (ej: AAPL, MSFT).
+  - Requiere autenticación (Bearer Token).
+  
+  ## Respuesta
+  
+  Devuelve los datos fundamentales actualizados:
+  - Precio actual
+  - Métricas de valoración (PE, FCF, etc.)
+  - Datos de dividendos
+  - Calidad de los datos
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response has ticker", function() {
+    const body = res.getBody();
+    expect(body.ticker).to.be.a('string');
+  });
+  
+  test("Response has currentPrice", function() {
+    const body = res.getBody();
+    expect(body.currentPrice).to.exist;
+  });
+}

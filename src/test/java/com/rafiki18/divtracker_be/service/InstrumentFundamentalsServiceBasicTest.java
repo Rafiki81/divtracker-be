@@ -30,8 +30,8 @@ class InstrumentFundamentalsServiceBasicTest {
                 .ticker("AAPL")
                 .companyName("Apple Inc.")
                 .currentPrice(new BigDecimal("173.50"))
-                .fcfPerShareTTM(new BigDecimal("6.32"))
-                .peTTM(new BigDecimal("27.45"))
+                .fcfPerShareAnnual(new BigDecimal("6.32"))
+                .peAnnual(new BigDecimal("27.45"))
                 .beta(new BigDecimal("1.29"))
                 .dataQuality(InstrumentFundamentals.DataQuality.COMPLETE)
                 .source(InstrumentFundamentals.DataSource.FINNHUB)
@@ -67,19 +67,8 @@ class InstrumentFundamentalsServiceBasicTest {
         assertThat(result.get()).isEqualByComparingTo("6.32");
     }
 
-    @Test
-    @DisplayName("Should get PE ratio")
-    void shouldGetPE() {
-        // Given
-        when(fundamentalsService.getPE("AAPL")).thenReturn(Optional.of(new BigDecimal("27.45")));
-
-        // When
-        Optional<BigDecimal> result = fundamentalsService.getPE("AAPL");
-
-        // Then
-        assertThat(result).isPresent();
-        assertThat(result.get()).isEqualByComparingTo("27.45");
-    }
+    // Removed shouldGetPE() test - getPE() method no longer exists in service
+    // PE ratio now accessed via fundamentals.getPeAnnual()
 
     @Test
     @DisplayName("Should get beta")

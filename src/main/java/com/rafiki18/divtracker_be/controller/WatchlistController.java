@@ -49,8 +49,8 @@ public class WatchlistController {
     @Operation(
         summary = "Listar items del watchlist",
         description = "Obtiene una lista paginada de todas las empresas en el watchlist del usuario autenticado. " +
-                "Incluye datos del cache (<24h): precio actual, FCF, PE TTM, Beta. " +
-                "Calcula métricas de valoración: DCF, TIR, FCF Yield, margen de seguridad, etc."
+                "Incluye datos del cache (<24h): precio actual, FCF per share (Annual). " +
+                "Calcula métricas de valoración: DCF, TIR, FCF Yield, margen de seguridad, payback period, ROI estimado, etc."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -84,8 +84,8 @@ public class WatchlistController {
     @Operation(
         summary = "Obtener un item del watchlist",
         description = "Obtiene los detalles completos de un item específico del watchlist. " +
-                "Incluye fundamentals desde cache (<24h): precio actual, FCF, PE TTM, Beta. " +
-                "Calcula métricas de valoración: DCF, TIR, margen de seguridad, FCF Yield, etc."
+                "Incluye fundamentals desde cache (<24h): precio actual, FCF per share (Annual). " +
+                "Calcula métricas de valoración: DCF, TIR, margen de seguridad, FCF Yield, payback period, ROI estimado, etc."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -121,10 +121,10 @@ public class WatchlistController {
         summary = "Crear item en el watchlist",
         description = "Añade una nueva empresa al watchlist del usuario autenticado. " +
                 "**targetPrice y targetPfcf son OPCIONALES**: Si no los especificas, se calculan automáticamente desde Finnhub. " +
-                "Obtiene fundamentals desde cache (<24h): precio, FCF, PE TTM, Beta. " +
+                "Obtiene fundamentals desde cache (<24h): precio actual, FCF per share (Annual). " +
                 "Si no hay datos de Finnhub, permite crear sin targets (se pueden agregar después). " +
-                "Calcula métricas: DCF, TIR, FCF Yield, margen de seguridad, payback period, ROI. " +
-                "Parámetros opcionales: growthRate, horizon, discountRate para cálculos avanzados."
+                "Calcula métricas: DCF, TIR, FCF Yield, margen de seguridad, payback period, ROI estimado. " +
+                "Parámetros opcionales: estimatedFcfGrowthRate, investmentHorizonYears, discountRate para cálculos avanzados."
     )
     @ApiResponses(value = {
         @ApiResponse(

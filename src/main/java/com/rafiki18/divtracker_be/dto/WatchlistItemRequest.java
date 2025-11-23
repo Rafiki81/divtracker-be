@@ -53,7 +53,7 @@ public class WatchlistItemRequest {
     @DecimalMin(value = "0.0", message = "La tasa de crecimiento del FCF debe ser mayor o igual a 0")
     @DecimalMax(value = "1.0", message = "La tasa de crecimiento del FCF no puede superar 100%")
     @Digits(integer = 1, fraction = 4, message = "La tasa de crecimiento tiene un formato inválido")
-    @Schema(description = "Tasa de crecimiento anual esperada del FCF (decimal, ej: 0.08 para 8%)", example = "0.08")
+    @Schema(description = "Tasa de crecimiento anual esperada del FCF (decimal, ej: 0.08 para 8%). OPCIONAL: Si se omite, se auto-calcula basado en el crecimiento histórico del EPS (topeado al 15%).", example = "0.08", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     private BigDecimal estimatedFcfGrowthRate;
     
     @Min(value = 1, message = "El horizonte de inversión debe ser al menos 1 año")

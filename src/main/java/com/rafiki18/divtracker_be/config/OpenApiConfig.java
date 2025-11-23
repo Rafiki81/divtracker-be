@@ -44,7 +44,11 @@ public class OpenApiConfig {
                                 "- 🛡️ **Margen de seguridad**: Diferencia entre precio actual y valor intrínseco\n" +
                                 "- ⏱️ **Payback Period**: Tiempo estimado de recuperación de la inversión\n" +
                                 "- 📊 **ROI estimado**: Retorno esperado según el horizonte de inversión\n" +
-                                "- 🔔 **Alertas de precio**: Notificaciones cuando el precio alcanza objetivos")
+                                "- 🔔 **Alertas de precio**: Notificaciones cuando el precio alcanza objetivos\n\n" +
+                                "### Datos fundamentales optimizados (14 campos esenciales):\n" +
+                                "- Estrategia: Datos **ANUALES** en lugar de TTM/quarterly para mayor estabilidad\n" +
+                                "- Incluye: precio actual, PE Annual, beta, debt-to-equity, FCF, dividendos\n" +
+                                "- Cache de 24 horas con respaldo a datos stale si Finnhub no disponible")
                         .contact(new Contact()
                                 .name("Rafael Perez Beato")
                                 .email("rafiki18@example.com"))
