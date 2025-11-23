@@ -61,7 +61,32 @@ Ahora puedes probar todos los endpoints protegidos.
   
 - **GET /api/v1/watchlist/{id}** - Obtener detalles de una empresa
   
+- **GET /api/v1/tickers/search** - Buscar tickers por nombre o símbolo
+  - Parámetros: `q` (query string, requerido)
+  - Ejemplo: `?q=apple` o `?q=AAPL`
+  - Retorna hasta 20 resultados con información completa
+  ```json
+  [
+    {
+      "symbol": "AAPL",
+      "description": "Apple Inc",
+      "type": "Common Stock",
+      "exchange": "NASDAQ",
+      "currency": "USD",
+      "figi": "BBG000B9XRY4"
+    }
+  ]
+  ```
+  
 - **POST /api/v1/watchlist** - Añadir empresa al watchlist
+  - **Modo 1: Solo ticker** (carga automática de datos desde Finnhub)
+  ```json
+  {
+    "ticker": "AAPL"
+  }
+  ```
+  
+  - **Modo 2: Con datos manuales**
   ```json
   {
     "ticker": "AAPL",
@@ -123,6 +148,15 @@ La respuesta de cada item del watchlist incluye:
 - **paybackPeriod**: Años estimados para recuperar la inversión
 - **estimatedROI**: Retorno de inversión esperado al horizonte configurado
 - **estimatedIRR**: Tasa Interna de Retorno anual esperada
+
+**Carga automática de datos:**
+Si creas un item solo con el ticker (sin `targetPrice` ni `targetPfcf`), el sistema:
+1. Obtiene `currentPrice` desde Finnhub
+2. Obtiene `freeCashFlowPerShare` desde Finnhub
+3. Calcula automáticamente `targetPfcf = currentPrice / FCF`
+4. Enriquece la respuesta con todas las métricas calculadas
+
+**Nota:** La carga automática requiere que Finnhub esté configurado (`FINNHUB_API_KEY`).
 
 ### 🔔 Webhooks de Finnhub
 

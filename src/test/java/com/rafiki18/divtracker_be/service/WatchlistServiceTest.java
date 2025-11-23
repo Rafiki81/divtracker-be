@@ -328,4 +328,179 @@ class WatchlistServiceTest {
         verify(repository).findByUserIdAndId(userId, itemId);
         verify(mapper, never()).toResponse(any());
     }
+    
+    @Test
+    @DisplayName("create() - Debe cargar datos automáticamente cuando solo se proporciona ticker")
+    void testCreate_AutomaticDataLoading_Success() {
+        // Arrange
+        WatchlistItemRequest autoRequest = WatchlistItemRequest.builder()
+                .ticker("AAPL")
+                .build();
+        
+        BigDecimal currentPrice = new BigDecimal("175.43");
+        BigDecimal fcfPerShare = new BigDecimal("6.32");
+        BigDecimal expectedPfcf = new BigDecimal("27.76");
+        
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
+        when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
+        // Primera llamada durante create() para auto-cargar, segunda durante enrichWithMarketData()
+        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
+                .thenReturn(new BigDecimal[]{currentPrice, fcfPerShare})
+                .thenReturn(new BigDecimal[]{null, null});
+        when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
+        when(repository.save(item)).thenReturn(item);
+        when(mapper.toResponse(item)).thenReturn(response);
+        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
+        
+        // Act
+        WatchlistItemResponse result = service.create(userId, autoRequest);
+        
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(autoRequest.getTargetPfcf()).isEqualTo(expectedPfcf);
+        
+        verify(marketDataEnrichmentService).isAvailable();
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("AAPL");
+        verify(repository).save(item);
+    }
+    
+    @Test
+    @DisplayName("create() - Debe lanzar excepción cuando carga automática falla y Finnhub disponible")
+    void testCreate_AutomaticDataLoading_NoMarketData() {
+        // Arrange
+        WatchlistItemRequest autoRequest = WatchlistItemRequest.builder()
+                .ticker("INVALID")
+                .build();
+        
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "INVALID")).thenReturn(false);
+        when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
+        when(marketDataEnrichmentService.fetchMarketData("INVALID"))
+                .thenReturn(new BigDecimal[]{null, null});
+        
+        // Act & Assert
+        assertThatThrownBy(() -> service.create(userId, autoRequest))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No se pudieron obtener datos de mercado");
+        
+        verify(marketDataEnrichmentService).isAvailable();
+        verify(marketDataEnrichmentService).fetchMarketData("INVALID");
+        verify(repository, never()).save(any());
+    }
+    
+    @Test
+    @DisplayName("create() - Debe lanzar excepción cuando no hay targets y Finnhub deshabilitado")
+    void testCreate_AutomaticDataLoading_FinnhubDisabled() {
+        // Arrange
+        WatchlistItemRequest autoRequest = WatchlistItemRequest.builder()
+                .ticker("AAPL")
+                .build();
+        
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
+        when(marketDataEnrichmentService.isAvailable()).thenReturn(false);
+        
+        // Act & Assert
+        assertThatThrownBy(() -> service.create(userId, autoRequest))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Debe especificar al menos targetPrice o targetPfcf");
+        
+        verify(marketDataEnrichmentService).isAvailable();
+        verify(marketDataEnrichmentService, never()).fetchMarketData(any());
+        verify(repository, never()).save(any());
+    }
+    
+    @Test
+    @DisplayName("create() - Debe usar datos manuales cuando se proporcionan (modo tradicional)")
+    void testCreate_ManualData_SkipsAutoLoad() {
+        // Arrange - Request con targetPrice manual
+        WatchlistItemRequest manualRequest = WatchlistItemRequest.builder()
+                .ticker("AAPL")
+                .targetPrice(new BigDecimal("150.50"))
+                .build();
+        
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
+        when(mapper.toEntity(manualRequest, userId)).thenReturn(item);
+        when(repository.save(item)).thenReturn(item);
+        when(mapper.toResponse(item)).thenReturn(response);
+        // Llamada durante enrichWithMarketData()
+        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
+                .thenReturn(new BigDecimal[]{null, null});
+        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
+        
+        // Act
+        WatchlistItemResponse result = service.create(userId, manualRequest);
+        
+        // Assert
+        assertThat(result).isNotNull();
+        // No debe llamar a isAvailable porque ya tiene targetPrice
+        verify(marketDataEnrichmentService, never()).isAvailable();
+        // Se llama una vez en enrichWithMarketData(), pero no durante create()
+        verify(marketDataEnrichmentService).fetchMarketData("AAPL");
+        verify(repository).save(item);
+    }
+    
+    @Test
+    @DisplayName("create() - Debe normalizar ticker a mayúsculas")
+    void testCreate_NormalizesTickerToUpperCase() {
+        // Arrange
+        WatchlistItemRequest lowerCaseRequest = WatchlistItemRequest.builder()
+                .ticker("aapl")
+                .targetPrice(new BigDecimal("150.50"))
+                .build();
+        
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
+        when(mapper.toEntity(lowerCaseRequest, userId)).thenReturn(item);
+        when(repository.save(item)).thenReturn(item);
+        when(mapper.toResponse(item)).thenReturn(response);
+        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
+                .thenReturn(new BigDecimal[]{null, null});
+        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
+        
+        // Act
+        service.create(userId, lowerCaseRequest);
+        
+        // Assert
+        verify(repository).existsByUserIdAndTickerIgnoreCase(userId, "AAPL");
+        verify(tickerSubscriptionService).registerTicker("AAPL");
+    }
+    
+    @Test
+    @DisplayName("create() - Debe calcular targetPfcf correctamente desde datos de mercado")
+    void testCreate_CalculatesTargetPfcfCorrectly() {
+        // Arrange
+        WatchlistItemRequest autoRequest = WatchlistItemRequest.builder()
+                .ticker("MSFT")
+                .build();
+        
+        BigDecimal price = new BigDecimal("380.00");
+        BigDecimal fcf = new BigDecimal("15.00");
+        BigDecimal expectedPfcf = new BigDecimal("25.33"); // 380/15 = 25.33
+        
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "MSFT")).thenReturn(false);
+        when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
+        // Primera llamada durante create() para auto-cargar, segunda durante enrichWithMarketData()
+        when(marketDataEnrichmentService.fetchMarketData("MSFT"))
+                .thenReturn(new BigDecimal[]{price, fcf}, new BigDecimal[]{null, null});
+        
+        WatchlistItem msftItem = WatchlistItem.builder()
+                .ticker("MSFT")
+                .targetPfcf(expectedPfcf)
+                .build();
+        
+        WatchlistItemResponse msftResponse = WatchlistItemResponse.builder()
+                .ticker("MSFT")
+                .targetPfcf(expectedPfcf)
+                .build();
+        
+        when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(msftItem);
+        when(repository.save(msftItem)).thenReturn(msftItem);
+        when(mapper.toResponse(msftItem)).thenReturn(msftResponse);
+        doNothing().when(tickerSubscriptionService).registerTicker("MSFT");
+        
+        // Act
+        service.create(userId, autoRequest);
+        
+        // Assert
+        assertThat(autoRequest.getTargetPfcf()).isEqualTo(expectedPfcf);
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("MSFT");
+    }
 }

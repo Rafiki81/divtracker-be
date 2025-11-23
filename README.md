@@ -19,6 +19,8 @@ DivTracker es una aplicación backend REST API para análisis financiero avanzad
 
 - 🔐 **Autenticación JWT** con OAuth2 (Google)
 - 📈 **Datos de mercado en tiempo real** vía Finnhub API
+- 🔍 **Búsqueda flexible de tickers** - por nombre o símbolo con autocompletado
+- 🤖 **Carga automática de datos** - crea items solo con el ticker
 - 💰 **Métricas financieras avanzadas**:
   - TIR (Tasa Interna de Retorno)
   - DCF (Discounted Cash Flow) con Gordon Growth Model
@@ -254,7 +256,30 @@ Content-Type: application/json
 ### Watchlist
 
 ```bash
-# Crear item (requiere JWT)
+# Buscar tickers (requiere JWT)
+GET /api/v1/tickers/search?q=apple
+Authorization: Bearer {token}
+
+# Response
+[
+  {
+    "symbol": "AAPL",
+    "description": "Apple Inc",
+    "type": "Common Stock",
+    "exchange": "NASDAQ",
+    "currency": "USD"
+  }
+]
+
+# Crear item - Modo Automático (solo ticker)
+POST /api/v1/watchlist
+Authorization: Bearer {token}
+Content-Type: application/json
+{
+  "ticker": "AAPL"
+}
+
+# Crear item - Modo Manual (con datos)
 POST /api/v1/watchlist
 Authorization: Bearer {token}
 Content-Type: application/json

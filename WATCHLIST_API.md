@@ -42,12 +42,76 @@ La funcionalidad de Watchlist (Radar) permite a los usuarios autenticados gestio
 
 ## Endpoints API
 
-### Base URL: `/api/v1/watchlist`
+### Base URL: `/api/v1/watchlist` y `/api/v1/tickers`
 
 Todos los endpoints requieren autenticación JWT mediante header:
 ```
 Authorization: Bearer <token>
 ```
+
+### 0. Buscar Tickers
+
+```http
+GET /api/v1/tickers/search?q={query}
+```
+
+**Descripción**: Busca tickers por nombre de empresa o símbolo. Realiza búsqueda flexible contra la API de Finnhub Symbol Search.
+
+**Parámetros de Query:**
+- `q` (requerido): Término de búsqueda (mínimo 1 carácter)
+  - Ejemplos: "apple", "AAPL", "micro", "tesla"
+  - No distingue mayúsculas/minúsculas
+  - Busca coincidencias parciales
+
+**Respuesta 200 OK:**
+```json
+[
+  {
+    "symbol": "AAPL",
+    "description": "Apple Inc",
+    "type": "Common Stock",
+    "exchange": "NASDAQ",
+    "currency": "USD",
+    "figi": "BBG000B9XRY4"
+  },
+  {
+    "symbol": "AAPL.SW",
+    "description": "Apple Inc",
+    "type": "Common Stock",
+    "exchange": "SIX",
+    "currency": "CHF",
+    "figi": "BBG000B9Y5X2"
+  }
+]
+```
+
+**Respuesta 400 Bad Request:**
+```json
+{
+  "timestamp": "2025-11-23T10:30:00",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Query parameter 'q' is required",
+  "path": "/api/v1/tickers/search"
+}
+```
+
+**Respuesta 503 Service Unavailable:**
+```json
+{
+  "timestamp": "2025-11-23T10:30:00",
+  "status": 503,
+  "error": "Service Unavailable",
+  "message": "Ticker search service is currently unavailable",
+  "path": "/api/v1/tickers/search"
+}
+```
+
+**Notas:**
+- Retorna hasta 20 resultados ordenados por relevancia
+- Requiere que Finnhub esté configurado (`FINNHUB_API_KEY`)
+- Útil para implementar autocompletado en UI
+- Responde rápidamente incluso con coincidencias parciales
 
 ### 1. Listar Items del Watchlist
 
@@ -102,7 +166,49 @@ POST /api/v1/watchlist
 Content-Type: application/json
 ```
 
-**Body:**
+**Modo 1: Carga Automática (Solo Ticker)**
+
+Si solo proporcionas el ticker, el sistema carga automáticamente los datos desde Finnhub:
+
+```json
+{
+  "ticker": "AAPL"
+}
+```
+
+**El sistema automáticamente:**
+1. Obtiene `currentPrice` desde Finnhub
+2. Obtiene `freeCashFlowPerShare` desde Finnhub  
+3. Calcula `targetPfcf = currentPrice / FCF`
+4. Enriquece la respuesta con todas las métricas
+
+**Requisitos:**
+- Finnhub debe estar configurado (`FINNHUB_API_KEY`)
+- El ticker debe existir en Finnhub
+- Finnhub debe tener datos de FCF para el ticker
+
+**Respuesta 201 Created (con datos cargados):**
+```json
+{
+  "id": "uuid-here",
+  "ticker": "AAPL",
+  "currentPrice": 175.43,
+  "freeCashFlowPerShare": 6.32,
+  "targetPfcf": 27.76,
+  "actualPfcf": 27.76,
+  "fairPriceByPfcf": 175.43,
+  "discountToFairPrice": 0.00,
+  "undervalued": false,
+  "dcfFairValue": 185.20,
+  "fcfYield": 3.60,
+  "marginOfSafety": 5.57,
+  "createdAt": "2025-11-23T10:30:00",
+  "updatedAt": "2025-11-23T10:30:00"
+}
+```
+
+**Modo 2: Datos Manuales (Tradicional)**
+
 ```json
 {
   "ticker": "AAPL",
@@ -110,19 +216,36 @@ Content-Type: application/json
   "targetPrice": 150.50,
   "targetPfcf": 15.5,
   "notifyWhenBelowPrice": false,
-  "notes": "Apple Inc."
+  "notes": "Apple Inc.",
+  "estimatedFcfGrowthRate": 0.08,
+  "investmentHorizonYears": 5,
+  "discountRate": 0.10
 }
 ```
 
 **Validaciones:**
 - `ticker`: Requerido, 1-12 caracteres, alfanumérico con puntos y guiones
-- `targetPrice` o `targetPfcf`: Al menos uno requerido
+- `targetPrice` o `targetPfcf`: Al menos uno requerido (o ninguno para modo automático)
 - `targetPrice` / `targetPfcf`: Si presente, debe ser > 0
 - `notes`: Máximo 500 caracteres
+- `estimatedFcfGrowthRate`: Opcional, tasa de crecimiento anual del FCF (0.08 = 8%)
+- `investmentHorizonYears`: Opcional, años del horizonte de inversión
+- `discountRate`: Opcional, tasa de descuento para DCF (0.10 = 10%)
 
 **Respuesta 201 Created:**
 - Header `Location`: URL del recurso creado
-- Body: Item creado
+- Body: Item creado con métricas calculadas
+
+**Respuesta 400 Bad Request:**
+```json
+{
+  "timestamp": "2025-11-23T10:30:00",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Finnhub service is not available. Please provide targetPrice or targetPfcf manually.",
+  "path": "/api/v1/watchlist"
+}
+```
 
 **Respuesta 409 Conflict:** Ticker duplicado para el usuario  
 **Respuesta 400 Bad Request:** Datos inválidos
@@ -164,18 +287,34 @@ DELETE /api/v1/watchlist/{id}
 ### Usando cURL
 
 ```bash
+# Buscar ticker
+curl -X GET "http://localhost:8080/api/v1/tickers/search?q=apple" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
 # Listar items
 curl -X GET "http://localhost:8080/api/v1/watchlist" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
-# Crear item
+# Crear item (modo automático - solo ticker)
+curl -X POST "http://localhost:8080/api/v1/watchlist" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ticker": "AAPL"
+  }'
+
+# Crear item (modo manual - con datos)
 curl -X POST "http://localhost:8080/api/v1/watchlist" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "ticker": "AAPL",
     "targetPrice": 150.50,
-    "notes": "Apple Inc."
+    "targetPfcf": 15.5,
+    "notes": "Apple Inc.",
+    "estimatedFcfGrowthRate": 0.08,
+    "investmentHorizonYears": 5,
+    "discountRate": 0.10
   }'
 
 # Actualizar item
