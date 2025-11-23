@@ -142,7 +142,7 @@ data class WatchlistItemResponse(
     @SerializedName("notes")
     val notes: String?,
     
-    // Datos de mercado actuales
+    // Datos de mercado actuales (desde cache de fundamentales)
     @SerializedName("currentPrice")
     val currentPrice: BigDecimal?,
     
@@ -151,6 +151,13 @@ data class WatchlistItemResponse(
     
     @SerializedName("actualPfcf")
     val actualPfcf: BigDecimal?,
+    
+    // 🆕 NUEVOS: Ratios de valoración desde cache
+    @SerializedName("peTTM")
+    val peTTM: BigDecimal?,  // Price-to-Earnings TTM
+    
+    @SerializedName("beta")
+    val beta: BigDecimal?,  // Volatilidad vs mercado (1.0 = mismo que mercado)
     
     // Análisis de valoración básico
     @SerializedName("fairPriceByPfcf")
@@ -288,8 +295,9 @@ import java.util.UUID
 interface WatchlistApiService {
     
     /**
-     * Symbol Lookup - Búsqueda exacta de símbolos (RECOMENDADO)
+     * 🆕 Symbol Lookup - Búsqueda exacta de símbolos (RECOMENDADO PARA FLUJO PRINCIPAL)
      * 
+     * Nuevo en v1.2: Búsqueda exacta de símbolos en US exchanges.
      * Busca símbolos exactos en US exchanges. Retorna todas las variaciones
      * de un ticker específico (ej: BAM → BAM, BAM.A, BAM.B).
      * 
@@ -309,9 +317,9 @@ interface WatchlistApiService {
     ): Response<List<TickerSearchResult>>
     
     /**
-     * Search by Name - Búsqueda fuzzy por nombre de compañía
+     * 🆕 Search by Name - Búsqueda fuzzy por nombre de compañía
      * 
-     * Búsqueda flexible para cuando el usuario no conoce el ticker exacto.
+     * Nuevo en v1.2: Búsqueda flexible para cuando el usuario no conoce el ticker exacto.
      * Busca por nombre de empresa:
      * - "Apple" → AAPL
      * - "Microsoft" → MSFT
@@ -425,7 +433,25 @@ class WatchlistRepository(
 ) {
     
     /**
-     * Buscar tickers por nombre o símbolo
+     * 🆕 Symbol Lookup - Búsqueda exacta de símbolos (RECOMENDADO)
+     * Nuevo en v1.2
+     */
+    suspend fun lookupSymbol(symbol: String): Result<List<TickerSearchResult>> = 
+        withContext(Dispatchers.IO) {
+            try {
+                if (symbol.isBlank()) {
+                    return@withContext Result.success(emptyList())
+                }
+                val response = apiService.lookupSymbol(symbol)
+                handleResponse(response)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+    
+    /**
+     * 🆕 Search by Name - Búsqueda fuzzy por nombre
+     * Nuevo en v1.2
      */
     suspend fun searchTickers(query: String): Result<List<TickerSearchResult>> = 
         withContext(Dispatchers.IO) {

@@ -29,7 +29,15 @@ La funcionalidad de Watchlist (Radar) permite a los usuarios autenticados gestio
   "notifyWhenBelowPrice": "Boolean (default: false)",
   "notes": "String (opcional, máx 500 caracteres)",
   "createdAt": "LocalDateTime",
-  "updatedAt": "LocalDateTime"
+  "updatedAt": "LocalDateTime",
+  // 🆕 Nuevos campos de enriquecimiento (calculados automáticamente)
+  "currentPrice": "BigDecimal (desde cache, <24h de antigüedad)",
+  "freeCashFlowPerShare": "BigDecimal (desde cache)",
+  "peTTM": "BigDecimal (P/E Trailing Twelve Months, desde cache)",
+  "beta": "BigDecimal (volatilidad vs mercado, desde cache)",
+  "actualPfcf": "BigDecimal (calculado)",
+  "dcfFairValue": "BigDecimal (calculado)",
+  "marginOfSafety": "BigDecimal (calculado)"
 }
 ```
 
@@ -190,6 +198,13 @@ GET /api/v1/watchlist?page=0&size=20&sortBy=createdAt&direction=DESC
       "targetPfcf": 15.5,
       "notifyWhenBelowPrice": false,
       "notes": "Apple Inc.",
+      "currentPrice": 172.15,
+      "freeCashFlowPerShare": 6.75,
+      "peTTM": 28.50,
+      "beta": 1.25,
+      "actualPfcf": 25.50,
+      "dcfFairValue": 150.00,
+      "marginOfSafety": 12.86,
       "createdAt": "2025-10-19T10:30:00",
       "updatedAt": "2025-10-19T10:30:00"
     }
@@ -233,16 +248,19 @@ Si solo proporcionas el ticker, el sistema carga **TODO** automáticamente desde
 ```
 
 **El sistema automáticamente:**
-1. Obtiene `currentPrice` desde Finnhub (ej: $172.15)
-2. Obtiene `freeCashFlowPerShare` desde Finnhub (ej: $6.75)
-3. Calcula `targetPfcf = currentPrice / FCF` (ej: 25.50)
-4. Calcula `targetPrice = FCF × targetPfcf` (ej: $172.13)
-5. Enriquece la respuesta con todas las métricas financieras
+1. Obtiene `currentPrice` desde cache (datos <24h, ej: $172.15)
+2. Obtiene `freeCashFlowPerShare` desde cache (ej: $6.75)
+3. Obtiene `peTTM` (Price-to-Earnings) desde cache (ej: 28.50)
+4. Obtiene `beta` (volatilidad) desde cache (ej: 1.25)
+5. Calcula `targetPfcf = currentPrice / FCF` (ej: 25.50)
+6. Calcula `targetPrice = FCF × targetPfcf` (ej: $172.13)
+7. Enriquece la respuesta con todas las métricas financieras
 
 **Requisitos:**
-- Finnhub debe estar configurado (`FINNHUB_API_KEY`)
+- Cache de fundamentals debe estar poblado (refresh automático cada 6h)
 - El ticker debe existir en Finnhub
-- Finnhub debe tener datos de precio y FCF para el ticker
+- Si datos en cache son obsoletos (>24h), se intenta refresh desde Finnhub
+- Si Finnhub falla, se usa último dato disponible (fallback a stale data)
 
 **Respuesta 201 Created:**
 ```json
@@ -253,6 +271,8 @@ Si solo proporcionas el ticker, el sistema carga **TODO** automáticamente desde
   "targetPfcf": 25.50,
   "currentPrice": 172.15,
   "freeCashFlowPerShare": 6.75,
+  "peTTM": 28.50,
+  "beta": 1.25,
   "actualPfcf": 25.50,
   "dcfFairValue": 172.13,
   "marginOfSafety": -0.01,
@@ -297,6 +317,8 @@ Proporciona solo el múltiplo P/FCF deseado:
   "targetPfcf": 20.0,
   "currentPrice": 172.15,
   "freeCashFlowPerShare": 6.75,
+  "peTTM": 28.50,
+  "beta": 1.25,
   "actualPfcf": 25.50,
   "dcfFairValue": 135.00,
   "marginOfSafety": 21.58,
@@ -337,6 +359,8 @@ Proporciona solo el precio objetivo:
   "targetPfcf": 22.22,
   "currentPrice": 172.15,
   "freeCashFlowPerShare": 6.75,
+  "peTTM": 28.50,
+  "beta": 1.25,
   "actualPfcf": 25.50,
   "dcfFairValue": 150.00,
   "marginOfSafety": 12.86,
@@ -375,12 +399,12 @@ Proporciona ambos valores manualmente:
 
 ### Tabla Comparativa de Modos
 
-| Modo | Proporcionas | Sistema Calcula | Requiere Finnhub |
-|------|-------------|-----------------|------------------|
-| **1. Automático** | Solo ticker | targetPrice + targetPfcf | ✅ Sí (precio + FCF) |
-| **2. Target P/FCF** | ticker + targetPfcf | targetPrice | ✅ Sí (FCF) |
-| **3. Target Price** | ticker + targetPrice | targetPfcf | ✅ Sí (FCF) |
-| **4. Manual** | ticker + ambos valores | Nada | ❌ No (opcional para enriquecimiento) |
+| Modo | Proporcionas | Sistema Calcula | Requiere Cache/Finnhub |
+|------|-------------|-----------------|------------------------|
+| **1. Automático** | Solo ticker | targetPrice + targetPfcf | ✅ Sí (cache con precio + FCF + PE + beta) |
+| **2. Target P/FCF** | ticker + targetPfcf | targetPrice | ✅ Sí (cache con FCF) |
+| **3. Target Price** | ticker + targetPrice | targetPfcf | ✅ Sí (cache con FCF) |
+| **4. Manual** | ticker + ambos valores | Nada | ❌ No (cache usado solo para enriquecimiento) |
 
 ---
 
@@ -570,6 +594,14 @@ CREATE TABLE watchlist_items (
    - Conversión DTO ↔ Entity
    - Normalización de datos
 
+5. **🆕 InstrumentFundamentalsService** (Cache Layer)
+   - Cache de datos fundamentales (precio, FCF, PE, beta, +30 métricas)
+   - Estrategia: Fresh (<24h) → API fallback → Stale data
+   - Refresh automático cada 6 horas (max 50 tickers/batch)
+   - Limpieza diaria de datos obsoletos (>30 días)
+   - Rate limiting: 1 call/segundo (respeta límite Finnhub 60/min)
+   - Calidad de datos: COMPLETE / PARTIAL / STALE
+
 ### Manejo de Errores
 
 Todas las respuestas de error siguen el estándar RFC7807:
@@ -646,12 +678,15 @@ mvn flyway:migrate
 ## Mejoras Futuras
 
 - [ ] Alertas en tiempo real cuando se alcancen precios objetivo
-- [ ] Integración con APIs de cotizaciones en vivo
-- [ ] Cálculo automático de PFCF basado en datos financieros
+- [x] ~~Integración con APIs de cotizaciones en vivo~~ ✅ Implementado (cache Finnhub)
+- [x] ~~Cálculo automático de PFCF basado en datos financieros~~ ✅ Implementado
 - [ ] Exportación de watchlist (CSV, JSON)
 - [ ] Compartir watchlists entre usuarios
 - [ ] Gráficos de evolución de precios
 - [ ] Notificaciones push/email
+- [ ] Dashboard con métricas agregadas (PE promedio, beta del portfolio, etc.)
+- [ ] Comparación entre múltiples tickers
+- [ ] Alertas cuando beta cambie significativamente
 
 ## Soporte
 
