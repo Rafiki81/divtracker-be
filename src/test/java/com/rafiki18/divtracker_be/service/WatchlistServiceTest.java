@@ -111,7 +111,7 @@ class WatchlistServiceTest {
         
         when(repository.findAllByUserId(userId, pageable)).thenReturn(itemPage);
         when(mapper.toResponse(item)).thenReturn(response);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null});
+        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null, null, null});
         
         // Act
         Page<WatchlistItemResponse> result = service.list(userId, pageable);
@@ -133,7 +133,7 @@ class WatchlistServiceTest {
         when(mapper.toEntity(request, userId)).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null});
+        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null, null, null});
         doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
         // Act
@@ -176,7 +176,7 @@ class WatchlistServiceTest {
         when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.of(item));
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null});
+        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null, null, null});
         doNothing().when(mapper).updateEntityFromRequest(item, updateRequest);
         
         // Act
@@ -265,7 +265,7 @@ class WatchlistServiceTest {
         // Mapper returns response with the NEW ticker after update
         when(mapper.toResponse(item)).thenReturn(response);
         // Mock market data fetch for the new ticker
-        when(marketDataEnrichmentService.fetchMarketData("MSFT")).thenReturn(new BigDecimal[]{null, null});
+        when(marketDataEnrichmentService.fetchMarketData("MSFT")).thenReturn(new BigDecimal[]{null, null, null, null});
         doAnswer(invocation -> {
             item.setTicker("MSFT");
             return null;
@@ -302,7 +302,7 @@ class WatchlistServiceTest {
         // Arrange
         when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.of(item));
         when(mapper.toResponse(item)).thenReturn(response);
-        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null});
+        when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null, null, null});
         
         // Act
         WatchlistItemResponse result = service.getById(userId, itemId);
@@ -346,7 +346,7 @@ class WatchlistServiceTest {
         // Primera llamada durante create() para auto-cargar, segunda durante enrichWithMarketData()
         when(marketDataEnrichmentService.fetchMarketData("AAPL"))
                 .thenReturn(new BigDecimal[]{currentPrice, fcfPerShare})
-                .thenReturn(new BigDecimal[]{null, null});
+                .thenReturn(new BigDecimal[]{null, null, null, null});
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
@@ -375,7 +375,7 @@ class WatchlistServiceTest {
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "INVALID")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         when(marketDataEnrichmentService.fetchMarketData("INVALID"))
-                .thenReturn(new BigDecimal[]{null, null});
+                .thenReturn(new BigDecimal[]{null, null, null, null});
         
         // Act & Assert
         assertThatThrownBy(() -> service.create(userId, autoRequest))
@@ -398,7 +398,7 @@ class WatchlistServiceTest {
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         when(marketDataEnrichmentService.fetchMarketData("AAPL"))
-                .thenReturn(new BigDecimal[]{null, null});
+                .thenReturn(new BigDecimal[]{null, null, null, null});
         
         // Act & Assert
         assertThatThrownBy(() -> service.create(userId, autoRequest))
@@ -426,7 +426,7 @@ class WatchlistServiceTest {
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         when(marketDataEnrichmentService.fetchMarketData("AAPL"))
                 .thenReturn(new BigDecimal[]{null, fcfPerShare})
-                .thenReturn(new BigDecimal[]{null, null});
+                .thenReturn(new BigDecimal[]{null, null, null, null});
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
@@ -459,7 +459,7 @@ class WatchlistServiceTest {
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         when(marketDataEnrichmentService.fetchMarketData("AAPL"))
                 .thenReturn(new BigDecimal[]{null, fcfPerShare})
-                .thenReturn(new BigDecimal[]{null, null});
+                .thenReturn(new BigDecimal[]{null, null, null, null});
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
@@ -491,7 +491,7 @@ class WatchlistServiceTest {
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
         when(marketDataEnrichmentService.fetchMarketData("AAPL"))
-                .thenReturn(new BigDecimal[]{null, null});
+                .thenReturn(new BigDecimal[]{null, null, null, null});
         doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
         // Act
@@ -518,7 +518,7 @@ class WatchlistServiceTest {
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "INVALID")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         when(marketDataEnrichmentService.fetchMarketData("INVALID"))
-                .thenReturn(new BigDecimal[]{null, null});
+                .thenReturn(new BigDecimal[]{null, null, null, null});
         
         // Act & Assert
         assertThatThrownBy(() -> service.create(userId, request))
@@ -540,7 +540,7 @@ class WatchlistServiceTest {
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "INVALID")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         when(marketDataEnrichmentService.fetchMarketData("INVALID"))
-                .thenReturn(new BigDecimal[]{null, null});
+                .thenReturn(new BigDecimal[]{null, null, null, null});
         
         // Act & Assert
         assertThatThrownBy(() -> service.create(userId, request))
@@ -565,7 +565,7 @@ class WatchlistServiceTest {
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
         when(marketDataEnrichmentService.fetchMarketData("AAPL"))
-                .thenReturn(new BigDecimal[]{null, null});
+                .thenReturn(new BigDecimal[]{null, null, null, null});
         doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
         // Act
@@ -593,7 +593,7 @@ class WatchlistServiceTest {
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         // Primera llamada durante create() para auto-cargar, segunda durante enrichWithMarketData()
         when(marketDataEnrichmentService.fetchMarketData("MSFT"))
-                .thenReturn(new BigDecimal[]{price, fcf}, new BigDecimal[]{null, null});
+                .thenReturn(new BigDecimal[]{price, fcf, null, null}, new BigDecimal[]{null, null, null, null});
         
         WatchlistItem msftItem = WatchlistItem.builder()
                 .ticker("MSFT")

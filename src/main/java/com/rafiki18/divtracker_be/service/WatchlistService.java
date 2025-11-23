@@ -64,8 +64,10 @@ public class WatchlistService {
         
         if (marketDataEnrichmentService.isAvailable()) {
             BigDecimal[] marketData = marketDataEnrichmentService.fetchMarketData(normalizedTicker);
-            currentPrice = marketData[0];
-            fcfPerShare = marketData[1];
+            currentPrice = marketData[0];  // Current price
+            fcfPerShare = marketData[1];   // FCF per share
+            // marketData[2] = PE TTM (not used here yet)
+            // marketData[3] = Beta (not used here yet)
         }
         
         // Caso 1: No se especificó ningún valor → Usar datos de mercado
@@ -227,8 +229,10 @@ public class WatchlistService {
         }
         
         BigDecimal[] marketData = marketDataEnrichmentService.fetchMarketData(response.getTicker());
-        BigDecimal currentPrice = marketData[0];
-        BigDecimal fcfPerShare = marketData[1];
+        BigDecimal currentPrice = marketData[0];  // Current price
+        BigDecimal fcfPerShare = marketData[1];   // FCF per share
+        // marketData[2] = PE TTM (available for future use)
+        // marketData[3] = Beta (available for future use)
         
         if (currentPrice != null && fcfPerShare != null) {
             watchlistMapper.enrichWithMarketData(response, currentPrice, fcfPerShare);

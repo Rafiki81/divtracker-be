@@ -58,6 +58,49 @@ public class FinnhubClient {
     }
 
     /**
+     * Fetch complete company profile from Finnhub.
+     * 
+     * @param ticker Stock ticker symbol
+     * @return Map containing profile data, or empty if not found
+     */
+    public Optional<Map<String, Object>> fetchCompanyProfile(String ticker) {
+        return fetchMap(ticker, "profile", builder -> builder
+                .path("/stock/profile2")
+                .queryParam("symbol", ticker)
+                .queryParam("token", properties.getApiKey())
+                .build());
+    }
+
+    /**
+     * Fetch all metrics for a ticker (PE, beta, margins, etc.).
+     * 
+     * @param ticker Stock ticker symbol
+     * @return Map containing all metrics, or empty if not found
+     */
+    public Optional<Map<String, Object>> fetchAllMetrics(String ticker) {
+        return fetchMap(ticker, "metrics", builder -> builder
+                .path("/stock/metric")
+                .queryParam("symbol", ticker)
+                .queryParam("metric", "all")
+                .queryParam("token", properties.getApiKey())
+                .build());
+    }
+
+    /**
+     * Fetch quote data (price, change, etc.) for a ticker.
+     * 
+     * @param ticker Stock ticker symbol
+     * @return Map containing quote data, or empty if not found
+     */
+    public Optional<Map<String, Object>> fetchQuote(String ticker) {
+        return fetchMap(ticker, "quote", builder -> builder
+                .path("/quote")
+                .queryParam("symbol", ticker)
+                .queryParam("token", properties.getApiKey())
+                .build());
+    }
+
+    /**
      * Lookup symbols from Finnhub using Symbol Lookup API.
      * Returns all symbols from US exchanges that match the query.
      * 
