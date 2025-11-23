@@ -152,6 +152,7 @@ public class WatchlistService {
         log.info("Created watchlist item {} for user {}", savedItem.getId(), userId);
         WatchlistItemResponse response = watchlistMapper.toResponse(savedItem);
         enrichWithMarketData(response);
+        log.info("FULL WATCHLIST ITEM RESPONSE for create {}: {}", normalizedTicker, response);
         return response;
     }
     
@@ -225,6 +226,7 @@ public class WatchlistService {
         
         WatchlistItemResponse response = watchlistMapper.toResponse(item);
         enrichWithMarketData(response);
+        log.info("FULL WATCHLIST ITEM RESPONSE for getById {}: {}", id, response);
         return response;
     }
     
@@ -242,7 +244,9 @@ public class WatchlistService {
         // marketData[2] = PE TTM (available for future use)
         // marketData[3] = Beta (available for future use)
         
-        if (currentPrice != null && fcfPerShare != null) {
+        log.info("Enriching response for {}: currentPrice={}, fcfPerShare={}", response.getTicker(), currentPrice, fcfPerShare);
+
+        if (currentPrice != null || fcfPerShare != null) {
             watchlistMapper.enrichWithMarketData(response, currentPrice, fcfPerShare);
         }
     }

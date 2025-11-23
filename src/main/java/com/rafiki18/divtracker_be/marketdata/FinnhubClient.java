@@ -184,9 +184,10 @@ public class FinnhubClient {
                 .build());
         
         if (result.isPresent()) {
+            log.info("Finnhub essential metrics FULL RESPONSE for {}: {}", ticker, result.get());
             Object metricObj = result.get().get("metric");
             if (metricObj instanceof Map<?, ?> metrics) {
-                log.debug("Finnhub essential metrics for {}: peAnnual={}, beta={}, debtToEquity={}", 
+                log.info("Finnhub essential metrics parsed for {}: peAnnual={}, beta={}, debtToEquity={}", 
                         ticker,
                         metrics.get("peAnnual"),
                         metrics.get("beta"),

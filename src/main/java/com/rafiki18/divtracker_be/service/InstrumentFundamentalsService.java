@@ -54,13 +54,13 @@ public class InstrumentFundamentalsService {
         if (cached.isPresent()) {
             InstrumentFundamentals fundamentals = cached.get();
             
-            // If fresh, return immediately
-            if (!fundamentals.isStale()) {
+            // If fresh AND has minimum data, return immediately
+            if (!fundamentals.isStale() && fundamentals.hasMinimumData()) {
                 log.debug("Returning fresh cached fundamentals for {}", normalizedTicker);
                 return cached;
             }
             
-            log.debug("Cached fundamentals for {} are stale, will try to refresh", normalizedTicker);
+            log.debug("Cached fundamentals for {} are stale or incomplete, will try to refresh", normalizedTicker);
         }
 
         // Try to fetch from Finnhub
@@ -232,6 +232,7 @@ public class InstrumentFundamentalsService {
             InstrumentFundamentals saved = fundamentalsRepository.save(fundamentals);
             log.info("Cached fundamentals for {} with quality: {}", 
                     ticker, saved.getDataQuality());
+            log.info("FULL SAVED FUNDAMENTALS for {}: {}", ticker, saved);
 
             return Optional.of(saved);
 

@@ -1,16 +1,18 @@
 package com.rafiki18.divtracker_be.mapper;
 
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.stereotype.Component;
+
 import com.rafiki18.divtracker_be.dto.WatchlistItemRequest;
 import com.rafiki18.divtracker_be.dto.WatchlistItemResponse;
 import com.rafiki18.divtracker_be.model.WatchlistItem;
 import com.rafiki18.divtracker_be.service.FinancialMetricsService;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.UUID;
 
 @Component
 @RequiredArgsConstructor
@@ -118,12 +120,29 @@ public class WatchlistMapper {
     public void enrichWithMarketData(WatchlistItemResponse response, 
                                      BigDecimal currentPrice, 
                                      BigDecimal fcfPerShare) {
-        if (response == null || currentPrice == null || fcfPerShare == null) {
+        if (response == null) {
             return;
         }
         
-        response.setCurrentPrice(currentPrice);
-        response.setFreeCashFlowPerShare(fcfPerShare);
+        if (currentPrice != null) {
+            response.setCurrentPrice(currentPrice);
+            
+            // Desviación del precio objetivo manual
+            if (response.getTargetPrice() != null) {
+                BigDecimal deviation = response.getTargetPrice().subtract(currentPrice)
+                        .divide(response.getTargetPrice(), 4, java.math.RoundingMode.HALF_UP);
+                response.setDeviationFromTargetPrice(deviation);
+            }
+        }
+        
+        if (fcfPerShare != null) {
+            response.setFreeCashFlowPerShare(fcfPerShare);
+        }
+        
+        // Si falta alguno de los dos datos críticos, no podemos calcular métricas de valoración
+        if (currentPrice == null || fcfPerShare == null) {
+            return;
+        }
         
         // Usar valores por defecto si no están configurados
         BigDecimal growthRate = response.getEstimatedFcfGrowthRate() != null ? 
