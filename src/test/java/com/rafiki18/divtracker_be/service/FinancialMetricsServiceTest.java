@@ -78,13 +78,26 @@ class FinancialMetricsServiceTest {
     }
 
     @Test
-    @DisplayName("Calculate DCF - Discount rate must be greater than growth rate")
+    @DisplayName("Calculate DCF - Discount rate must be greater than perpetual growth rate")
     void testCalculateDCF_InvalidRates() {
         BigDecimal currentFcf = new BigDecimal("10.00");
-        BigDecimal growthRate = new BigDecimal("0.12");
-        BigDecimal discountRate = new BigDecimal("0.10"); // Lower than growth
+        BigDecimal growthRate = new BigDecimal("0.12"); // Perpetual growth = 0.06
+        BigDecimal discountRate = new BigDecimal("0.05"); // Lower than perpetual growth
 
         assertNull(service.calculateDCF(currentFcf, growthRate, discountRate, 5));
+    }
+
+    @Test
+    @DisplayName("Calculate DCF - High growth case (Discount rate < Growth rate but > Perpetual growth)")
+    void testCalculateDCF_HighGrowthCase() {
+        BigDecimal currentFcf = new BigDecimal("10.00");
+        BigDecimal growthRate = new BigDecimal("0.12"); // Perpetual growth = 0.06
+        BigDecimal discountRate = new BigDecimal("0.10"); // Lower than growth, but higher than perpetual
+
+        BigDecimal intrinsicValue = service.calculateDCF(currentFcf, growthRate, discountRate, 5);
+        
+        assertNotNull(intrinsicValue);
+        assertTrue(intrinsicValue.compareTo(BigDecimal.ZERO) > 0);
     }
 
     @Test
