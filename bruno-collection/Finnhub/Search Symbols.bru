@@ -1,0 +1,33 @@
+meta {
+  name: Search Symbols
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/search?q={{searchQuery}}
+  body: none
+  auth: none
+}
+
+params:query {
+  q: {{searchQuery}}
+  token: {{finnhubToken}}
+}
+
+vars:pre-request {
+  searchQuery: AAPL
+}
+
+docs {
+  ## Symbol Lookup
+  
+  Busca símbolos que hagan match con el texto de entrada (ticker, nombre, ISIN, CUSIP).
+  Úsalo para el paso "meto un ticker / texto y me saca posibles matches".
+  
+  ### Parámetros:
+  - **q**: Texto de búsqueda. Puede ser ticker, nombre de la empresa, ISIN o CUSIP.
+  
+  ### Respuesta:
+  - Lista de símbolos coincidentes con información básica (symbol, displaySymbol, description, type, etc.)
+}

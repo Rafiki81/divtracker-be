@@ -1,0 +1,35 @@
+meta {
+  name: Get Company Profile
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/stock/profile2?symbol={{symbol}}
+  body: none
+  auth: none
+}
+
+params:query {
+  symbol: {{symbol}}
+  token: {{finnhubToken}}
+}
+
+vars:pre-request {
+  symbol: AAPL
+}
+
+docs {
+  ## Company Profile 2
+  
+  Obtiene la información básica de la compañía.
+  
+  ### Parámetros:
+  - **symbol**: Ticker de la acción (p.ej. AAPL)
+  - **isin**: ISIN del instrumento (opcional, alternativa a symbol)
+  - **cusip**: CUSIP del instrumento (opcional, alternativa a symbol)
+  
+  ### Respuesta:
+  - Perfil de la compañía incluyendo: country, currency, exchange, IPO, marketCapitalization, 
+    name, shareOutstanding, ticker, weburl, logo, finnhubIndustry
+}

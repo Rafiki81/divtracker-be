@@ -52,8 +52,10 @@ public class TickerSearchService {
     /**
      * Search for tickers by query (company name or symbol).
      * Best for finding companies by name (e.g., "Apple" -> AAPL).
+     * Uses intelligent search: tries symbol lookup first (faster), 
+     * falls back to fuzzy search if no results (better coverage).
      *
-     * @param query Search term (e.g., "Apple", "Microsoft")
+     * @param query Search term (e.g., "Apple", "Microsoft", "TAP")
      * @return List of matching ticker results, limited to 20
      */
     public List<TickerSearchResult> searchTickers(String query) {
@@ -70,7 +72,15 @@ public class TickerSearchService {
         String normalizedQuery = query.trim();
         log.debug("Searching tickers for query: {}", normalizedQuery);
         
-        List<TickerSearchResult> results = finnhubClient.searchSymbols(normalizedQuery);
+        // Try exact symbol lookup first (faster for tickers)
+        List<TickerSearchResult> results = finnhubClient.lookupSymbol(normalizedQuery);
+        
+        // If no results with exact lookup, try fuzzy search (for company names)
+        if (results.isEmpty()) {
+            log.debug("No results from symbol lookup, trying fuzzy search");
+            results = finnhubClient.searchSymbols(normalizedQuery);
+        }
+        
         log.info("Found {} ticker results for query: {}", results.size(), normalizedQuery);
         
         return results;

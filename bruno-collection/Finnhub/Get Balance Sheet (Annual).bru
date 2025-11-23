@@ -1,0 +1,39 @@
+meta {
+  name: Get Balance Sheet (Annual)
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/stock/financials?symbol={{symbol}}&statement=bs&freq=annual
+  body: none
+  auth: none
+}
+
+params:query {
+  symbol: {{symbol}}
+  statement: bs
+  freq: annual
+  token: {{finnhubToken}}
+}
+
+vars:pre-request {
+  symbol: AAPL
+}
+
+docs {
+  ## Financial Statements - Balance Sheet (Annual)
+  
+  Devuelve el balance de situación estructurado por periodos anuales.
+  Útil para análisis de activos, pasivos y patrimonio.
+  
+  ### Parámetros:
+  - **symbol**: Ticker de la acción (p.ej. AAPL)
+  - **statement**: bs (Balance Sheet)
+  - **freq**: annual (datos anuales)
+  
+  ### Respuesta:
+  - Array de **financials** con datos por periodo
+  - Campos típicos: reportDate, totalAssets, totalLiabilities, 
+    shareholderEquity, cash, debt, etc.
+}

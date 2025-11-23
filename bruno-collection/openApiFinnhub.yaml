@@ -1,0 +1,367 @@
+openapi: 3.0.3
+info:
+  title: Finnhub FCF Valuation Subset
+  version: 1.0.1
+  description: |
+    Subconjunto de la API pública de Finnhub necesario para:
+    - Buscar un ticker por texto libre.
+    - Obtener el perfil de empresa.
+    - Obtener la cotización actual.
+    - Obtener métricas básicas (incl. PER, FCF, márgenes, etc.).
+    - Obtener estados financieros (especialmente Cash Flow) para cálculo de FCF, DCF y TIR.
+
+servers:
+  - url: https://finnhub.io/api/v1
+    description: Finnhub REST API v1
+
+components:
+  securitySchemes:
+    finnhubTokenQuery:
+      type: apiKey
+      in: query
+      name: token
+      description: |
+        Finnhub API token pasado como query parameter (?token=...).
+    finnhubTokenHeader:
+      type: apiKey
+      in: header
+      name: X-Finnhub-Token
+      description: |
+        Finnhub API token pasado como cabecera HTTP (X-Finnhub-Token).
+
+  schemas:
+    SymbolLookupResultItem:
+      type: object
+      description: Resultado individual del endpoint de symbol lookup.
+      properties:
+        symbol:
+          type: string
+          description: Ticker estándar (p.ej. AAPL).
+        displaySymbol:
+          type: string
+          description: Símbolo tal y como se muestra en el mercado (AAPL, AAPL.US, etc.).
+        description:
+          type: string
+          description: Nombre de la compañía o del instrumento.
+        type:
+          type: string
+          description: Tipo de instrumento (Common Stock, ETF, etc.).
+        currency:
+          type: string
+          nullable: true
+          description: Moneda principal del instrumento (si está disponible).
+        mic:
+          type: string
+          nullable: true
+          description: MIC del mercado (si está disponible).
+
+    SymbolLookupResponse:
+      type: object
+      properties:
+        count:
+          type: integer
+          description: Número de resultados.
+        result:
+          type: array
+          items:
+            $ref: '#/components/schemas/SymbolLookupResultItem'
+
+    CompanyProfile2:
+      type: object
+      description: Perfil simplificado de la compañía (Profile2).
+      properties:
+        country:
+          type: string
+        currency:
+          type: string
+        exchange:
+          type: string
+        ipo:
+          type: string
+          description: Fecha de IPO (YYYY-MM-DD).
+        marketCapitalization:
+          type: number
+          format: float
+        name:
+          type: string
+        phone:
+          type: string
+        shareOutstanding:
+          type: number
+          format: float
+        ticker:
+          type: string
+        weburl:
+          type: string
+          format: uri
+        logo:
+          type: string
+          format: uri
+        finnhubIndustry:
+          type: string
+
+    Quote:
+      type: object
+      description: |
+        Cotización actual de la acción.
+        Nombres de campos según Finnhub.
+      properties:
+        c:
+          type: number
+          format: float
+          description: Current price (último precio).
+        h:
+          type: number
+          format: float
+          description: High price of the day.
+        l:
+          type: number
+          format: float
+          description: Low price of the day.
+        o:
+          type: number
+          format: float
+          description: Open price of the day.
+        pc:
+          type: number
+          format: float
+          description: Previous close price.
+        t:
+          type: integer
+          format: int64
+          description: UNIX timestamp del último update.
+        d:
+          type: number
+          format: float
+          nullable: true
+          description: Cambio absoluto respecto al cierre anterior.
+        dp:
+          type: number
+          format: float
+          nullable: true
+          description: Cambio porcentual respecto al cierre anterior.
+
+    BasicFinancials:
+      type: object
+      description: |
+        Respuesta del endpoint /stock/metric con metric=all.
+        Contiene métricas actuales (PE, FCF, márgenes, etc.) y series históricas.
+      properties:
+        symbol:
+          type: string
+        metricType:
+          type: string
+          description: Tipo de métricas devueltas (p.ej. "all").
+        metric:
+          type: object
+          description: |
+            Mapa de métricas puntuales (TTM, reciente, etc.).
+            Ejemplos típicos: peTTM, epsTTM, fcfMarginTTM, freeCashFlowPerShareTTM, operatingMarginTTM, etc.
+          additionalProperties:
+            type: number
+            format: float
+        series:
+          type: object
+          description: |
+            Series históricas para ciertas métricas.
+            Normalmente contiene sub-objetos como "annual" y "quarterly".
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: array
+              items:
+                type: object
+                additionalProperties:
+                  oneOf:
+                    - type: string
+                    - type: number
+                    - type: integer
+
+    FinancialsResponse:
+      type: object
+      description: |
+        Respuesta del endpoint /stock/financials.
+        Cada elemento de `financials` es un mapa de campos para un periodo (año/trimestre).
+      properties:
+        symbol:
+          type: string
+        financials:
+          type: array
+          items:
+            type: object
+            description: |
+              Datos financieros de un periodo concreto.
+              Algunos campos típicos (no exhaustivo): reportDate, currency,
+              fiscalYear, fiscalPeriod, netIncome, operatingCashFlow, capitalExpenditure, freeCashFlow, etc.
+            additionalProperties:
+              oneOf:
+                - type: string
+                - type: number
+                - type: integer
+
+security:
+  # Significa: requiere EITHER token en query OR token en header.
+  - finnhubTokenQuery: []
+  - finnhubTokenHeader: []
+
+paths:
+  /search:
+    get:
+      summary: Symbol lookup
+      description: |
+        Busca símbolos que hagan match con el texto de entrada (ticker, nombre, ISIN, CUSIP).
+        Úsalo para el paso "meto un ticker / texto y me saca posibles matches".
+      operationId: searchSymbols
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: |
+            Texto de búsqueda. Puede ser ticker, nombre de la empresa, ISIN o CUSIP.
+      responses:
+        '200':
+          description: Lista de símbolos coincidentes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SymbolLookupResponse'
+        '400':
+          description: Parámetro de búsqueda inválido.
+
+  /stock/profile2:
+    get:
+      summary: Company profile 2
+      description: Obtiene la información básica de la compañía.
+      operationId: getCompanyProfile2
+      parameters:
+        - name: symbol
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Ticker de la acción (p.ej. AAPL).
+        - name: isin
+          in: query
+          required: false
+          schema:
+            type: string
+          description: ISIN del instrumento.
+        - name: cusip
+          in: query
+          required: false
+          schema:
+            type: string
+          description: CUSIP del instrumento.
+      responses:
+        '200':
+          description: Perfil de la compañía.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompanyProfile2'
+        '400':
+          description: Falta symbol/isin/cusip o son inválidos.
+
+  /quote:
+    get:
+      summary: Real-time quote
+      description: |
+        Cotización actual del instrumento. Útil para:
+        - Precio actual (para FCF yield, PER, etc.).
+        - Cambio diario y %.
+      operationId: getQuote
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Ticker de la acción (p.ej. AAPL).
+      responses:
+        '200':
+          description: Cotización actual.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Quote'
+        '400':
+          description: Símbolo inválido.
+
+  /stock/metric:
+    get:
+      summary: Company basic financials (metrics)
+      description: |
+        Devuelve métricas básicas de la compañía (PER, FCF, márgenes, ratios, etc.)
+        y opcionalmente series históricas para algunas métricas.
+        Para tu flujo, lo normal es llamar siempre con `metric=all`.
+      operationId: getBasicFinancials
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Ticker de la acción (p.ej. AAPL).
+        - name: metric
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [all]
+          description: |
+            Tipo de métricas a devolver. En la práctica se usa `all` para obtener todo.
+      responses:
+        '200':
+          description: Métricas financieras básicas de la compañía.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BasicFinancials'
+        '400':
+          description: Parámetros inválidos.
+
+  /stock/financials:
+    get:
+      summary: Financial statements (incl. cash flow)
+      description: |
+        Devuelve estados financieros estructurados por periodos.
+        Para FCF/DCF, lo típico es usar:
+        - `statement=cf` para Cash Flow.
+        - `freq=annual` o `freq=quarterly`.
+      operationId: getFinancialStatements
+      parameters:
+        - name: symbol
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Ticker de la acción (p.ej. AAPL).
+        - name: statement
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [bs, ic, cf]
+          description: |
+            Tipo de estado financiero:
+            - bs: Balance Sheet
+            - ic: Income Statement
+            - cf: Cash Flow
+        - name: freq
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [annual, quarterly]
+          description: Frecuencia de los datos (annual o quarterly).
+      responses:
+        '200':
+          description: Estados financieros de la compañía.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FinancialsResponse'
+        '400':
+          description: Parámetros inválidos (symbol/statement/freq).

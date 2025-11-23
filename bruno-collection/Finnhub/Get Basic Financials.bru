@@ -1,0 +1,37 @@
+meta {
+  name: Get Basic Financials
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/stock/metric?symbol={{symbol}}&metric=all
+  body: none
+  auth: none
+}
+
+params:query {
+  symbol: {{symbol}}
+  metric: all
+  token: {{finnhubToken}}
+}
+
+vars:pre-request {
+  symbol: AAPL
+}
+
+docs {
+  ## Company Basic Financials (Metrics)
+  
+  Devuelve métricas básicas de la compañía (PER, FCF, márgenes, ratios, etc.)
+  y opcionalmente series históricas para algunas métricas.
+  
+  ### Parámetros:
+  - **symbol**: Ticker de la acción (p.ej. AAPL)
+  - **metric**: Tipo de métricas a devolver. Se usa "all" para obtener todo
+  
+  ### Respuesta:
+  - **metric**: Mapa de métricas puntuales (TTM, reciente, etc.)
+    - Ejemplos: peTTM, epsTTM, fcfMarginTTM, freeCashFlowPerShareTTM, operatingMarginTTM, etc.
+  - **series**: Series históricas para ciertas métricas (annual y quarterly)
+}

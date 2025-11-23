@@ -1,0 +1,39 @@
+meta {
+  name: Get Cash Flow Statement (Annual)
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/stock/financials?symbol={{symbol}}&statement=cf&freq=annual
+  body: none
+  auth: none
+}
+
+params:query {
+  symbol: {{symbol}}
+  statement: cf
+  freq: annual
+  token: {{finnhubToken}}
+}
+
+vars:pre-request {
+  symbol: AAPL
+}
+
+docs {
+  ## Financial Statements - Cash Flow (Annual)
+  
+  Devuelve estados financieros de cash flow estructurados por periodos anuales.
+  Esencial para cálculo de FCF/DCF.
+  
+  ### Parámetros:
+  - **symbol**: Ticker de la acción (p.ej. AAPL)
+  - **statement**: cf (Cash Flow)
+  - **freq**: annual (datos anuales)
+  
+  ### Respuesta:
+  - Array de **financials** con datos por periodo
+  - Campos típicos: reportDate, currency, fiscalYear, fiscalPeriod, 
+    netIncome, operatingCashFlow, capitalExpenditure, freeCashFlow, etc.
+}

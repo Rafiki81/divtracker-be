@@ -1,0 +1,41 @@
+meta {
+  name: Get Real-time Quote
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/quote?symbol={{symbol}}
+  body: none
+  auth: none
+}
+
+params:query {
+  symbol: {{symbol}}
+  token: {{finnhubToken}}
+}
+
+vars:pre-request {
+  symbol: AAPL
+}
+
+docs {
+  ## Real-time Quote
+  
+  Cotización actual del instrumento. Útil para:
+  - Precio actual (para FCF yield, PER, etc.)
+  - Cambio diario y %
+  
+  ### Parámetros:
+  - **symbol**: Ticker de la acción (p.ej. AAPL)
+  
+  ### Respuesta:
+  - **c**: Current price (último precio)
+  - **h**: High price of the day
+  - **l**: Low price of the day
+  - **o**: Open price of the day
+  - **pc**: Previous close price
+  - **t**: UNIX timestamp del último update
+  - **d**: Cambio absoluto respecto al cierre anterior
+  - **dp**: Cambio porcentual respecto al cierre anterior
+}

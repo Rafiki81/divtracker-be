@@ -1,0 +1,39 @@
+meta {
+  name: Get Income Statement (Annual)
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/stock/financials?symbol={{symbol}}&statement=ic&freq=annual
+  body: none
+  auth: none
+}
+
+params:query {
+  symbol: {{symbol}}
+  statement: ic
+  freq: annual
+  token: {{finnhubToken}}
+}
+
+vars:pre-request {
+  symbol: AAPL
+}
+
+docs {
+  ## Financial Statements - Income Statement (Annual)
+  
+  Devuelve estados de resultados (P&L) estructurados por periodos anuales.
+  Útil para análisis de ingresos, gastos y márgenes.
+  
+  ### Parámetros:
+  - **symbol**: Ticker de la acción (p.ej. AAPL)
+  - **statement**: ic (Income Statement)
+  - **freq**: annual (datos anuales)
+  
+  ### Respuesta:
+  - Array de **financials** con datos por periodo
+  - Campos típicos: reportDate, revenue, costOfRevenue, grossProfit, 
+    operatingIncome, netIncome, eps, etc.
+}

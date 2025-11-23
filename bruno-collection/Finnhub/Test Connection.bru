@@ -1,0 +1,21 @@
+meta {
+  name: Test Connection
+  type: http
+  seq: 9
+}
+
+get {
+  url: https://finnhub.io/api/v1/quote?symbol=AAPL&token={{finnhubToken}}
+  body: none
+  auth: none
+}
+
+docs {
+  ## Test Connection
+  
+  Endpoint simple para verificar que la conexión con Finnhub funciona.
+  Si este falla, verifica:
+  1. Tu token de API es válido
+  2. No has excedido el rate limit (60 req/min)
+  3. Tu conexión a internet funciona
+}
