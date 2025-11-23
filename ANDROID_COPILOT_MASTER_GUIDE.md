@@ -129,6 +129,8 @@ data class FundamentalsResponse(
     val debtToEquityRatio: BigDecimal?,
     val fcfAnnual: BigDecimal?,
     val fcfPerShareAnnual: BigDecimal?,
+    val shareOutstanding: BigDecimal?,
+    val dividendPerShareAnnual: BigDecimal?,
     val dividendYield: BigDecimal?,
     val dividendGrowthRate5Y: BigDecimal?, // Crecimiento Dividendos 5Y
     val epsGrowth5Y: BigDecimal?,          // Crecimiento EPS 5Y
@@ -166,10 +168,16 @@ data class WatchlistItemRequest(
 ```kotlin
 data class WatchlistItemResponse(
     val id: UUID,
+    val userId: UUID,
     val ticker: String,
+    val exchange: String?,
+    
     // Datos Usuario
     val targetPrice: BigDecimal?,
+    val targetPfcf: BigDecimal?,
+    val notifyWhenBelowPrice: Boolean,
     val notes: String?,
+    
     // Datos Mercado (Automáticos)
     val currentPrice: BigDecimal?,
     val freeCashFlowPerShare: BigDecimal?,
@@ -177,12 +185,29 @@ data class WatchlistItemResponse(
     val beta: BigDecimal?,             // Volatilidad
     val focfCagr5Y: BigDecimal?,       // CAGR FCF 5 años
     val dividendYield: BigDecimal?,    // Yield
-    // Cálculos Backend (Automáticos)
+    
+    // Métricas Básicas Calculadas
+    val actualPfcf: BigDecimal?,
+    val fairPriceByPfcf: BigDecimal?,
+    val discountToFairPrice: BigDecimal?,
+    val deviationFromTargetPrice: BigDecimal?,
+    val undervalued: Boolean?,
+    
+    // Parámetros de Valoración
+    val estimatedFcfGrowthRate: BigDecimal?,
+    val investmentHorizonYears: Int?,
+    val discountRate: BigDecimal?,
+    
+    // Métricas Avanzadas DCF
     val dcfFairValue: BigDecimal?,     // Valor Justo
+    val fcfYield: BigDecimal?,
     val marginOfSafety: BigDecimal?,   // Margen Seguridad %
-    val undervalued: Boolean?,         // ¿Está barata?
+    val estimatedROI: BigDecimal?,
     val estimatedIRR: BigDecimal?,     // Retorno anual esperado
-    val paybackPeriod: BigDecimal?     // Años para recuperar inversión
+    val paybackPeriod: BigDecimal?,    // Años para recuperar inversión
+    
+    val createdAt: LocalDateTime,
+    val updatedAt: LocalDateTime
 )
 ```
 
