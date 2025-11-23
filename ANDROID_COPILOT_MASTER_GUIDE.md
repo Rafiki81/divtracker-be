@@ -133,6 +133,7 @@ data class FundamentalsResponse(
     val dividendGrowthRate5Y: BigDecimal?, // Crecimiento Dividendos 5Y
     val epsGrowth5Y: BigDecimal?,          // Crecimiento EPS 5Y
     val revenueGrowth5Y: BigDecimal?,      // Crecimiento Ventas 5Y
+    val focfCagr5Y: BigDecimal?,           // Crecimiento FCF Operativo 5Y
     val dataQuality: String?,       // "COMPLETE", "PARTIAL", "STALE"
     val lastUpdatedAt: String?      // ISO-8601
 )
@@ -172,6 +173,10 @@ data class WatchlistItemResponse(
     // Datos Mercado (Automáticos)
     val currentPrice: BigDecimal?,
     val freeCashFlowPerShare: BigDecimal?,
+    val peAnnual: BigDecimal?,         // Price-to-Earnings Anual
+    val beta: BigDecimal?,             // Volatilidad
+    val focfCagr5Y: BigDecimal?,       // CAGR FCF 5 años
+    val dividendYield: BigDecimal?,    // Yield
     // Cálculos Backend (Automáticos)
     val dcfFairValue: BigDecimal?,     // Valor Justo
     val marginOfSafety: BigDecimal?,   // Margen Seguridad %
