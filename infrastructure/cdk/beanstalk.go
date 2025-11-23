@@ -101,7 +101,7 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
 			Namespace:  jsii.String("aws:autoscaling:launchconfiguration"),
 			OptionName: jsii.String("InstanceType"),
-			Value:      jsii.String("t2.micro"),
+			Value:      jsii.String("t3.small"),
 		},
 		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
 			Namespace:  jsii.String("aws:autoscaling:launchconfiguration"),
