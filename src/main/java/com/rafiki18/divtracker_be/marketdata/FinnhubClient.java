@@ -51,9 +51,8 @@ public class FinnhubClient {
                 .flatMap(body -> Optional.ofNullable(body.get("metric")))
         .filter(Map.class::isInstance)
         .map(raw -> (Map<?, ?>) raw)
-        .flatMap(metric -> extractDecimal(firstNonNull(metric,
-            "freeCashFlowPerShareTTM",
-            "freeCashFlowPerShareAnnual")))
+        // Finnhub solo expone freeCashFlowPerShareTTM (no existe freeCashFlowPerShareAnnual)
+        .flatMap(metric -> extractDecimal(metric.get("freeCashFlowPerShareTTM")))
                 .filter(value -> value.compareTo(BigDecimal.ZERO) > 0);
     }
 
@@ -100,10 +99,12 @@ public class FinnhubClient {
         if (result.isPresent()) {
             Object metricObj = result.get().get("metric");
             if (metricObj instanceof Map<?, ?> metrics) {
-                log.debug("Finnhub metrics for {}: fcfTTM={}, fcfAnnual={}, peTTM={}, beta={}", 
+                log.debug("Finnhub metrics for {}: fcfPerShareTTM={}, fcfAnnual={}, fcfTTM={}, pfcfShareTTM={}, peTTM={}, beta={}", 
                         ticker,
                         metrics.get("freeCashFlowPerShareTTM"),
-                        metrics.get("freeCashFlowPerShareAnnual"),
+                        metrics.get("freeCashFlowAnnual"),
+                        metrics.get("freeCashFlowTTM"),
+                        metrics.get("pfcfShareTTM"),
                         metrics.get("peTTM"),
                         metrics.get("beta"));
             } else {
@@ -241,7 +242,9 @@ public class FinnhubClient {
     }
 
     public boolean isEnabled() {
-        return properties.isEnabled() && StringUtils.hasText(properties.getApiUrl());
+        return properties.isEnabled() 
+            && StringUtils.hasText(properties.getApiUrl())
+            && StringUtils.hasText(properties.getApiKey());
     }
 
     private TickerSearchResult mapToTickerSearchResult(Map<?, ?> data) {
@@ -306,14 +309,5 @@ public class FinnhubClient {
             log.debug("Unable to parse numeric value from {}", value);
             return Optional.empty();
         }
-    }
-
-    private Object firstNonNull(Map<?, ?> source, String... keys) {
-        for (String key : keys) {
-            if (source.containsKey(key) && source.get(key) != null) {
-                return source.get(key);
-            }
-        }
-        return null;
     }
 }
