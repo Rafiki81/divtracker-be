@@ -163,18 +163,36 @@ jobs:
           --environment-names divtracker-prod \
           --query 'Environments[0].CNAME' \
           --output text)
-        echo "app_url=https://$CNAME" >> $GITHUB_OUTPUT
+        echo "app_url=http://$CNAME" >> $GITHUB_OUTPUT
     
     - name: 🏥 Health Check
       run: |
-        sleep 30
-        HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.url.outputs.app_url }}/actuator/health)
-        if [ "$HTTP_CODE" -eq 200 ]; then
-          echo "✅ Deployment exitoso!"
-        else
-          echo "❌ Health check falló: HTTP $HTTP_CODE"
-          exit 1
-        fi
+        echo "Esperando a que la aplicación esté lista..."
+        MAX_ATTEMPTS=30
+        ATTEMPT=0
+        
+        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+          ATTEMPT=$((ATTEMPT + 1))
+          echo "Intento $ATTEMPT/$MAX_ATTEMPTS..."
+          
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.url.outputs.app_url }}/actuator/health || echo "000")
+          
+          if [ "$HTTP_CODE" -eq 200 ]; then
+            echo "✅ Deployment exitoso! La aplicación está respondiendo correctamente."
+            exit 0
+          fi
+          
+          echo "Health check respondió con código: $HTTP_CODE"
+          
+          if [ $ATTEMPT -lt $MAX_ATTEMPTS ]; then
+            echo "Esperando 10 segundos antes del siguiente intento..."
+            sleep 10
+          fi
+        done
+        
+        echo "❌ Health check falló después de $MAX_ATTEMPTS intentos (5 minutos)"
+        echo "Última respuesta: HTTP $HTTP_CODE"
+        exit 1
     
     - name: 📋 Mostrar logs si falla
       if: failure()
