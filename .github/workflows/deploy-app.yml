@@ -158,12 +158,12 @@ jobs:
     - name: 🌐 Obtener URL
       id: url
       run: |
-        URL=$(aws elasticbeanstalk describe-environments \
+        CNAME=$(aws elasticbeanstalk describe-environments \
           --application-name divtracker-prod \
           --environment-names divtracker-prod \
           --query 'Environments[0].CNAME' \
           --output text)
-        echo "app_url=http://$URL" >> $GITHUB_OUTPUT
+        echo "app_url=https://$CNAME" >> $GITHUB_OUTPUT
     
     - name: 🏥 Health Check
       run: |
