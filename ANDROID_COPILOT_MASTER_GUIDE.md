@@ -137,6 +137,7 @@ data class FundamentalsResponse(
     val revenueGrowth5Y: BigDecimal?,      // Crecimiento Ventas 5Y
     val focfCagr5Y: BigDecimal?,           // Crecimiento FCF Operativo 5Y
     val dataQuality: String?,       // "COMPLETE", "PARTIAL", "STALE"
+    val dataSource: String?,        // "FINNHUB", "MANUAL", "CALCULATED"
     val lastUpdatedAt: String?      // ISO-8601
 )
 ```
@@ -181,9 +182,9 @@ data class WatchlistItemResponse(
     // Datos Mercado (Automáticos)
     val currentPrice: BigDecimal?,
     val freeCashFlowPerShare: BigDecimal?,
-    val peAnnual: BigDecimal?,         // Price-to-Earnings Anual
     val beta: BigDecimal?,             // Volatilidad
     val focfCagr5Y: BigDecimal?,       // CAGR FCF 5 años
+    val peAnnual: BigDecimal?,         // Price-to-Earnings Anual
     val dividendYield: BigDecimal?,    // Yield
     
     // Métricas Básicas Calculadas
@@ -202,9 +203,9 @@ data class WatchlistItemResponse(
     val dcfFairValue: BigDecimal?,     // Valor Justo
     val fcfYield: BigDecimal?,
     val marginOfSafety: BigDecimal?,   // Margen Seguridad %
+    val paybackPeriod: BigDecimal?,    // Años para recuperar inversión
     val estimatedROI: BigDecimal?,
     val estimatedIRR: BigDecimal?,     // Retorno anual esperado
-    val paybackPeriod: BigDecimal?,    // Años para recuperar inversión
     
     val createdAt: LocalDateTime,
     val updatedAt: LocalDateTime
