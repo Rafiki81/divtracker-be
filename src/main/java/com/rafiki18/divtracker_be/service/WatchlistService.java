@@ -70,9 +70,9 @@ public class WatchlistService {
             // marketData[3] = Beta (not used here yet)
         }
         
-        // Caso 1: No se especificó ningún valor → Usar datos de mercado
+        // Caso 1: No se especificó ningún valor → Intentar auto-calcular con datos de mercado
         if (request.getTargetPrice() == null && request.getTargetPfcf() == null) {
-            if (currentPrice != null && fcfPerShare != null) {
+            if (currentPrice != null && fcfPerShare != null && fcfPerShare.compareTo(BigDecimal.ZERO) > 0) {
                 // Calcular P/FCF actual como targetPfcf inicial
                 BigDecimal actualPfcf = currentPrice.divide(fcfPerShare, 2, java.math.RoundingMode.HALF_UP);
                 request.setTargetPfcf(actualPfcf);
@@ -82,43 +82,39 @@ public class WatchlistService {
                     .setScale(2, java.math.RoundingMode.HALF_UP);
                 request.setTargetPrice(calculatedTargetPrice);
                 
-                log.info("Auto-set targetPfcf={} and targetPrice={} for {} based on market data", 
+                log.info("Auto-calculated targetPfcf={} and targetPrice={} for {} based on current market data", 
                     actualPfcf, calculatedTargetPrice, normalizedTicker);
             } else {
-                log.warn("Could not fetch market data for {}. At least targetPrice or targetPfcf is required.", normalizedTicker);
-                throw new IllegalArgumentException(
-                    "No se pudieron obtener datos de mercado para " + normalizedTicker + 
-                    ". Debes especificar al menos targetPrice o targetPfcf manualmente.");
+                // Permitir crear sin targets - el usuario puede agregarlos después
+                log.info("Creating watchlist item for {} without target values (market data unavailable)", normalizedTicker);
             }
         }
-        // Caso 2: Solo se especificó targetPfcf → Calcular targetPrice
+        // Caso 2: Solo se especificó targetPfcf → Calcular targetPrice si es posible
         else if (request.getTargetPrice() == null && request.getTargetPfcf() != null) {
-            if (fcfPerShare != null) {
+            if (fcfPerShare != null && fcfPerShare.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal calculatedTargetPrice = fcfPerShare.multiply(request.getTargetPfcf())
                     .setScale(2, java.math.RoundingMode.HALF_UP);
                 request.setTargetPrice(calculatedTargetPrice);
-                log.info("Calculated targetPrice={} from targetPfcf={} for {}", 
-                    calculatedTargetPrice, request.getTargetPfcf(), normalizedTicker);
+                log.info("Calculated targetPrice={} from targetPfcf={} and FCF={} for {}", 
+                    calculatedTargetPrice, request.getTargetPfcf(), fcfPerShare, normalizedTicker);
             } else {
-                log.warn("Cannot calculate targetPrice without FCF data for {}", normalizedTicker);
-                throw new IllegalArgumentException(
-                    "No se pudo obtener FCF para " + normalizedTicker + 
-                    ". Debes especificar targetPrice manualmente.");
+                // Permitir solo con targetPfcf (targetPrice se calculará cuando haya datos)
+                log.info("Creating watchlist item for {} with targetPfcf={} only (FCF data unavailable for targetPrice calculation)", 
+                    normalizedTicker, request.getTargetPfcf());
             }
         }
-        // Caso 3: Solo se especificó targetPrice → Calcular targetPfcf
+        // Caso 3: Solo se especificó targetPrice → Calcular targetPfcf si es posible
         else if (request.getTargetPrice() != null && request.getTargetPfcf() == null) {
             if (fcfPerShare != null && fcfPerShare.compareTo(BigDecimal.ZERO) > 0) {
                 BigDecimal calculatedTargetPfcf = request.getTargetPrice()
                     .divide(fcfPerShare, 2, java.math.RoundingMode.HALF_UP);
                 request.setTargetPfcf(calculatedTargetPfcf);
-                log.info("Calculated targetPfcf={} from targetPrice={} for {}", 
-                    calculatedTargetPfcf, request.getTargetPrice(), normalizedTicker);
+                log.info("Calculated targetPfcf={} from targetPrice={} and FCF={} for {}", 
+                    calculatedTargetPfcf, request.getTargetPrice(), fcfPerShare, normalizedTicker);
             } else {
-                log.warn("Cannot calculate targetPfcf without FCF data for {}", normalizedTicker);
-                throw new IllegalArgumentException(
-                    "No se pudo obtener FCF para " + normalizedTicker + 
-                    ". Debes especificar targetPfcf manualmente.");
+                // Permitir solo con targetPrice (targetPfcf se calculará cuando haya datos)
+                log.info("Creating watchlist item for {} with targetPrice={} only (FCF data unavailable for targetPfcf calculation)", 
+                    normalizedTicker, request.getTargetPrice());
             }
         }
         // Caso 4: Se especificaron ambos → Usar valores del usuario

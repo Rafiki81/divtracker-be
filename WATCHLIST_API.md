@@ -44,8 +44,8 @@ La funcionalidad de Watchlist (Radar) permite a los usuarios autenticados gestio
 ### Restricciones
 
 - **Ticker único por usuario** (case insensitive)
-- **Al menos uno** de `targetPrice` o `targetPfcf` debe estar presente
-- **Valores positivos** para precios y ratios
+- **targetPrice y targetPfcf son OPCIONALES**: Si no se proporcionan, se calculan automáticamente desde Finnhub (si está disponible)
+- **Valores positivos** para precios y ratios (cuando se proporcionan)
 - **Aislamiento total** entre usuarios
 
 ## Endpoints API
@@ -411,48 +411,40 @@ Proporciona ambos valores manualmente:
 ### Validaciones
 
 - `ticker`: Requerido, 1-12 caracteres, alfanumérico con puntos y guiones
-- `targetPrice`: Opcional, pero si presente debe ser > 0
-- `targetPfcf`: Opcional, pero si presente debe ser > 0
+- `targetPrice`: Completamente opcional, si presente debe ser > 0
+- `targetPfcf`: Completamente opcional, si presente debe ser > 0
 - `notes`: Máximo 500 caracteres
-- Si **no** proporcionas ningún valor, Finnhub **debe estar disponible**
-- Si proporcionas **solo uno**, Finnhub **debe tener datos de FCF**
+- Si **no** proporcionas valores, el sistema intenta obtenerlos de Finnhub (cache)
+- Si Finnhub no está disponible, se crea el item sin targets (puedes agregarlos después)
+- Los cálculos automáticos requieren que Finnhub tenga datos de FCF
 
 ---
 
 ### Errores Comunes
 
-**Sin datos y Finnhub no disponible:**
+**Ticker duplicado:**
 ```json
 {
   "timestamp": "2025-11-23T10:30:00",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Debe especificar al menos targetPrice o targetPfcf cuando Finnhub no está disponible.",
+  "status": 409,
+  "error": "Conflict",
+  "message": "Ticker 'AAPL' already exists in your watchlist",
   "path": "/api/v1/watchlist"
 }
 ```
 
-**Ticker sin datos en Finnhub:**
+**Valores inválidos:**
 ```json
 {
   "timestamp": "2025-11-23T10:30:00",
   "status": 400,
   "error": "Bad Request",
-  "message": "No se pudieron obtener datos de mercado para INVALID. Debes especificar al menos targetPrice o targetPfcf manualmente.",
+  "message": "El ticker debe tener entre 1 y 12 caracteres",
   "path": "/api/v1/watchlist"
 }
 ```
 
-**Solo targetPrice pero sin FCF disponible:**
-```json
-{
-  "timestamp": "2025-11-23T10:30:00",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "No se pudo obtener FCF para TICKER. Debes especificar targetPfcf manualmente.",
-  "path": "/api/v1/watchlist"
-}
-```
+**Nota**: Ya NO se requiere que especifiques targetPrice o targetPfcf. El sistema permite crear items sin estos valores si los datos de Finnhub no están disponibles.
 
 **Respuesta 409 Conflict:** Ticker duplicado para el usuario  
 **Respuesta 400 Bad Request:** Datos inválidos (valores negativos, formato incorrecto, etc.)

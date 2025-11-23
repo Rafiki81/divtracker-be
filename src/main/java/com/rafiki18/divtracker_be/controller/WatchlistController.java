@@ -120,8 +120,9 @@ public class WatchlistController {
     @Operation(
         summary = "Crear item en el watchlist",
         description = "Añade una nueva empresa al watchlist del usuario autenticado. " +
+                "**targetPrice y targetPfcf son OPCIONALES**: Si no los especificas, se calculan automáticamente desde Finnhub. " +
                 "Obtiene fundamentals desde cache (<24h): precio, FCF, PE TTM, Beta. " +
-                "Si no especificas targetPrice/targetPfcf, los calcula automáticamente. " +
+                "Si no hay datos de Finnhub, permite crear sin targets (se pueden agregar después). " +
                 "Calcula métricas: DCF, TIR, FCF Yield, margen de seguridad, payback period, ROI. " +
                 "Parámetros opcionales: growthRate, horizon, discountRate para cálculos avanzados."
     )

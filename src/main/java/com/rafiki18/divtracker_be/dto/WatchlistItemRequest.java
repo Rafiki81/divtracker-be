@@ -35,12 +35,12 @@ public class WatchlistItemRequest {
     
     @DecimalMin(value = "0.01", message = "El precio objetivo debe ser mayor que 0")
     @Digits(integer = 15, fraction = 4, message = "El precio objetivo tiene un formato inválido")
-    @Schema(description = "Precio objetivo para la acción", example = "150.50")
+    @Schema(description = "Precio objetivo para la acción (OPCIONAL - se auto-calcula si no se proporciona)", example = "150.50", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     private BigDecimal targetPrice;
     
     @DecimalMin(value = "0.01", message = "El PFCF objetivo debe ser mayor que 0")
     @Digits(integer = 15, fraction = 4, message = "El PFCF objetivo tiene un formato inválido")
-    @Schema(description = "Price to Free Cash Flow objetivo", example = "15.5")
+    @Schema(description = "Price to Free Cash Flow objetivo (OPCIONAL - se auto-calcula si no se proporciona)", example = "15.5", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     private BigDecimal targetPfcf;
     
     @Schema(description = "Notificar cuando el precio esté por debajo del objetivo", example = "false")

@@ -67,10 +67,10 @@ data class WatchlistItemRequest(
     val exchange: String? = null,  // Opcional, ej: "NASDAQ"
     
     @SerializedName("targetPrice")
-    val targetPrice: BigDecimal? = null,  // Opcional* - ver nota abajo
+    val targetPrice: BigDecimal? = null,  // ✅ COMPLETAMENTE OPCIONAL
     
     @SerializedName("targetPfcf")
-    val targetPfcf: BigDecimal? = null,  // Opcional* - ver nota abajo
+    val targetPfcf: BigDecimal? = null,  // ✅ COMPLETAMENTE OPCIONAL
     
     @SerializedName("notifyWhenBelowPrice")
     val notifyWhenBelowPrice: Boolean? = false,
@@ -87,9 +87,10 @@ data class WatchlistItemRequest(
     @SerializedName("discountRate")
     val discountRate: BigDecimal? = null  // Opcional, 0.01-1.0 (ej: 0.10 = 10%)
 ) {
-    // NOTA: targetPrice y targetPfcf son opcionales si Finnhub está habilitado
-    // El backend calculará targetPfcf automáticamente basándose en datos de mercado
-    // Si Finnhub no está disponible, al menos uno es requerido
+    // ✅ NOVEDAD v1.2: targetPrice y targetPfcf son COMPLETAMENTE OPCIONALES
+    // - Si no los proporcionas, el backend los calcula automáticamente desde Finnhub
+    // - Si Finnhub no tiene datos, permite crear el item sin targets
+    // - Puedes actualizar los targets después cuando quieras
     
     init {
         ticker.let {

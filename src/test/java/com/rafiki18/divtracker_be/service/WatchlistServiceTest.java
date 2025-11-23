@@ -365,10 +365,18 @@ class WatchlistServiceTest {
     }
     
     @Test
-    @DisplayName("create() - Debe lanzar excepción cuando carga automática falla y Finnhub disponible")
+    @DisplayName("create() - Debe permitir crear sin targets cuando no hay datos de mercado")
     void testCreate_AutomaticDataLoading_NoMarketData() {
         // Arrange
         WatchlistItemRequest autoRequest = WatchlistItemRequest.builder()
+                .ticker("INVALID")
+                .build();
+        
+        WatchlistItem itemWithoutTargets = WatchlistItem.builder()
+                .ticker("INVALID")
+                .build();
+        
+        WatchlistItemResponse responseWithoutTargets = WatchlistItemResponse.builder()
                 .ticker("INVALID")
                 .build();
         
@@ -376,22 +384,39 @@ class WatchlistServiceTest {
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         when(marketDataEnrichmentService.fetchMarketData("INVALID"))
                 .thenReturn(new BigDecimal[]{null, null, null, null});
+        when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithoutTargets);
+        when(repository.save(itemWithoutTargets)).thenReturn(itemWithoutTargets);
+        when(mapper.toResponse(itemWithoutTargets)).thenReturn(responseWithoutTargets);
+        doNothing().when(tickerSubscriptionService).registerTicker("INVALID");
         
-        // Act & Assert
-        assertThatThrownBy(() -> service.create(userId, autoRequest))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No se pudieron obtener datos de mercado");
+        // Act
+        WatchlistItemResponse result = service.create(userId, autoRequest);
+        
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.getTicker()).isEqualTo("INVALID");
+        assertThat(autoRequest.getTargetPrice()).isNull();
+        assertThat(autoRequest.getTargetPfcf()).isNull();
         
         verify(marketDataEnrichmentService).isAvailable();
-        verify(marketDataEnrichmentService).fetchMarketData("INVALID");
-        verify(repository, never()).save(any());
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("INVALID");
+        verify(repository).save(itemWithoutTargets);
+        verify(tickerSubscriptionService).registerTicker("INVALID");
     }
     
     @Test
-    @DisplayName("create() - Debe lanzar excepción cuando no hay targets y Finnhub deshabilitado")
-    void testCreate_AutomaticDataLoading_FinnhubDisabled() {
+    @DisplayName("create() - Debe permitir crear sin targets cuando no hay datos disponibles")
+    void testCreate_AutomaticDataLoading_NoDataAvailable() {
         // Arrange
         WatchlistItemRequest autoRequest = WatchlistItemRequest.builder()
+                .ticker("AAPL")
+                .build();
+        
+        WatchlistItem itemWithoutTargets = WatchlistItem.builder()
+                .ticker("AAPL")
+                .build();
+        
+        WatchlistItemResponse responseWithoutTargets = WatchlistItemResponse.builder()
                 .ticker("AAPL")
                 .build();
         
@@ -399,15 +424,24 @@ class WatchlistServiceTest {
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         when(marketDataEnrichmentService.fetchMarketData("AAPL"))
                 .thenReturn(new BigDecimal[]{null, null, null, null});
+        when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithoutTargets);
+        when(repository.save(itemWithoutTargets)).thenReturn(itemWithoutTargets);
+        when(mapper.toResponse(itemWithoutTargets)).thenReturn(responseWithoutTargets);
+        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
-        // Act & Assert
-        assertThatThrownBy(() -> service.create(userId, autoRequest))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No se pudieron obtener datos de mercado");
+        // Act
+        WatchlistItemResponse result = service.create(userId, autoRequest);
+        
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.getTicker()).isEqualTo("AAPL");
+        assertThat(autoRequest.getTargetPrice()).isNull();
+        assertThat(autoRequest.getTargetPfcf()).isNull();
         
         verify(marketDataEnrichmentService).isAvailable();
-        verify(marketDataEnrichmentService).fetchMarketData("AAPL");
-        verify(repository, never()).save(any());
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("AAPL");
+        verify(repository).save(itemWithoutTargets);
+        verify(tickerSubscriptionService).registerTicker("AAPL");
     }
     
     @Test
@@ -507,10 +541,20 @@ class WatchlistServiceTest {
     }
     
     @Test
-    @DisplayName("create() - Debe lanzar excepción cuando solo hay targetPrice sin FCF disponible")
+    @DisplayName("create() - Debe permitir crear solo con targetPrice sin calcular targetPfcf si no hay FCF")
     void testCreate_TargetPriceOnly_NoFCFData() {
         // Arrange
         WatchlistItemRequest request = WatchlistItemRequest.builder()
+                .ticker("INVALID")
+                .targetPrice(new BigDecimal("150.00"))
+                .build();
+        
+        WatchlistItem itemWithTargetPriceOnly = WatchlistItem.builder()
+                .ticker("INVALID")
+                .targetPrice(new BigDecimal("150.00"))
+                .build();
+        
+        WatchlistItemResponse responseWithTargetPriceOnly = WatchlistItemResponse.builder()
                 .ticker("INVALID")
                 .targetPrice(new BigDecimal("150.00"))
                 .build();
@@ -519,20 +563,38 @@ class WatchlistServiceTest {
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         when(marketDataEnrichmentService.fetchMarketData("INVALID"))
                 .thenReturn(new BigDecimal[]{null, null, null, null});
+        when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithTargetPriceOnly);
+        when(repository.save(itemWithTargetPriceOnly)).thenReturn(itemWithTargetPriceOnly);
+        when(mapper.toResponse(itemWithTargetPriceOnly)).thenReturn(responseWithTargetPriceOnly);
+        doNothing().when(tickerSubscriptionService).registerTicker("INVALID");
         
-        // Act & Assert
-        assertThatThrownBy(() -> service.create(userId, request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No se pudo obtener FCF");
+        // Act
+        WatchlistItemResponse result = service.create(userId, request);
         
-        verify(repository, never()).save(any());
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.getTargetPrice()).isEqualTo(new BigDecimal("150.00"));
+        assertThat(request.getTargetPfcf()).isNull();
+        
+        verify(repository).save(itemWithTargetPriceOnly);
+        verify(tickerSubscriptionService).registerTicker("INVALID");
     }
     
     @Test
-    @DisplayName("create() - Debe lanzar excepción cuando solo hay targetPfcf sin FCF disponible")
+    @DisplayName("create() - Debe permitir crear solo con targetPfcf sin calcular targetPrice si no hay FCF")
     void testCreate_TargetPfcfOnly_NoFCFData() {
         // Arrange
         WatchlistItemRequest request = WatchlistItemRequest.builder()
+                .ticker("INVALID")
+                .targetPfcf(new BigDecimal("20.00"))
+                .build();
+        
+        WatchlistItem itemWithTargetPfcfOnly = WatchlistItem.builder()
+                .ticker("INVALID")
+                .targetPfcf(new BigDecimal("20.00"))
+                .build();
+        
+        WatchlistItemResponse responseWithTargetPfcfOnly = WatchlistItemResponse.builder()
                 .ticker("INVALID")
                 .targetPfcf(new BigDecimal("20.00"))
                 .build();
@@ -541,13 +603,21 @@ class WatchlistServiceTest {
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         when(marketDataEnrichmentService.fetchMarketData("INVALID"))
                 .thenReturn(new BigDecimal[]{null, null, null, null});
+        when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithTargetPfcfOnly);
+        when(repository.save(itemWithTargetPfcfOnly)).thenReturn(itemWithTargetPfcfOnly);
+        when(mapper.toResponse(itemWithTargetPfcfOnly)).thenReturn(responseWithTargetPfcfOnly);
+        doNothing().when(tickerSubscriptionService).registerTicker("INVALID");
         
-        // Act & Assert
-        assertThatThrownBy(() -> service.create(userId, request))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("No se pudo obtener FCF");
+        // Act
+        WatchlistItemResponse result = service.create(userId, request);
         
-        verify(repository, never()).save(any());
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(result.getTargetPfcf()).isEqualTo(new BigDecimal("20.00"));
+        assertThat(request.getTargetPrice()).isNull();
+        
+        verify(repository).save(itemWithTargetPfcfOnly);
+        verify(tickerSubscriptionService).registerTicker("INVALID");
     }
     
     @Test
