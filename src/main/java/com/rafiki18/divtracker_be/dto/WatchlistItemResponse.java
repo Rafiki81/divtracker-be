@@ -47,6 +47,12 @@ public class WatchlistItemResponse {
     @Schema(description = "FCF por acción reportado", example = "11.45")
     private BigDecimal freeCashFlowPerShare;
 
+    @Schema(description = "Price-to-Earnings ratio (TTM) desde cache", example = "28.50")
+    private BigDecimal peTTM;
+
+    @Schema(description = "Beta (volatilidad vs mercado) desde cache", example = "1.25")
+    private BigDecimal beta;
+
     @Schema(description = "P/FCF actual calculado", example = "15.03")
     private BigDecimal actualPfcf;
 

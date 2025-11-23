@@ -49,7 +49,8 @@ public class WatchlistController {
     @Operation(
         summary = "Listar items del watchlist",
         description = "Obtiene una lista paginada de todas las empresas en el watchlist del usuario autenticado. " +
-                "Incluye precios actualizados y todas las métricas de valoración calculadas (DCF, TIR, FCF Yield, etc.)."
+                "Incluye datos del cache (<24h): precio actual, FCF, PE TTM, Beta. " +
+                "Calcula métricas de valoración: DCF, TIR, FCF Yield, margen de seguridad, etc."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -82,9 +83,9 @@ public class WatchlistController {
     
     @Operation(
         summary = "Obtener un item del watchlist",
-        description = "Obtiene los detalles completos de un item específico del watchlist, " +
-                "incluyendo precio actual, métricas de valoración (DCF, TIR, margen de seguridad, etc.) " +
-                "y parámetros de análisis configurados."
+        description = "Obtiene los detalles completos de un item específico del watchlist. " +
+                "Incluye fundamentals desde cache (<24h): precio actual, FCF, PE TTM, Beta. " +
+                "Calcula métricas de valoración: DCF, TIR, margen de seguridad, FCF Yield, etc."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -119,9 +120,10 @@ public class WatchlistController {
     @Operation(
         summary = "Crear item en el watchlist",
         description = "Añade una nueva empresa al watchlist del usuario autenticado. " +
-                "Calcula automáticamente métricas de valoración como DCF, TIR, FCF Yield, margen de seguridad, " +
-                "payback period y ROI estimado. Los parámetros de valoración (growthRate, horizon, discountRate) " +
-                "son opcionales y se usan para cálculos avanzados."
+                "Obtiene fundamentals desde cache (<24h): precio, FCF, PE TTM, Beta. " +
+                "Si no especificas targetPrice/targetPfcf, los calcula automáticamente. " +
+                "Calcula métricas: DCF, TIR, FCF Yield, margen de seguridad, payback period, ROI. " +
+                "Parámetros opcionales: growthRate, horizon, discountRate para cálculos avanzados."
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -168,8 +170,8 @@ public class WatchlistController {
     @Operation(
         summary = "Actualizar item del watchlist",
         description = "Actualiza parcialmente un item existente en el watchlist (PATCH/merge). " +
-                "Recalcula automáticamente todas las métricas de valoración cuando se actualizan " +
-                "los parámetros de entrada (targetPrice, targetPfcf, growthRate, horizon, discountRate)."
+                "Refresca fundamentals desde cache (precio, FCF, PE, Beta si <24h). " +
+                "Recalcula todas las métricas de valoración automáticamente: DCF, TIR, margen de seguridad, etc."
     )
     @ApiResponses(value = {
         @ApiResponse(

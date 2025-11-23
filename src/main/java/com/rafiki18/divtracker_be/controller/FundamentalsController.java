@@ -13,6 +13,7 @@ import com.rafiki18.divtracker_be.service.InstrumentFundamentalsService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -101,24 +102,60 @@ public class FundamentalsController {
      */
     @lombok.Data
     @lombok.Builder
+    @Schema(description = "Fundamentals data cached from Finnhub")
     public static class FundamentalsResponse {
+        @Schema(description = "Stock ticker symbol", example = "AAPL")
         private String ticker;
+        
+        @Schema(description = "Company name", example = "Apple Inc")
         private String companyName;
+        
+        @Schema(description = "Current market price", example = "172.15")
         private java.math.BigDecimal currentPrice;
+        
+        @Schema(description = "Free Cash Flow per share (TTM)", example = "6.75")
         private java.math.BigDecimal fcfPerShareTTM;
+        
+        @Schema(description = "Free Cash Flow per share (Annual)", example = "6.50")
         private java.math.BigDecimal fcfPerShareAnnual;
+        
+        @Schema(description = "Price-to-Earnings ratio (Trailing Twelve Months)", example = "28.50")
         private java.math.BigDecimal peTTM;
+        
+        @Schema(description = "Beta (volatility vs market)", example = "1.25")
         private java.math.BigDecimal beta;
+        
+        @Schema(description = "Dividend yield percentage", example = "0.52")
         private java.math.BigDecimal dividendYield;
+        
+        @Schema(description = "Earnings per share (TTM)", example = "6.05")
         private java.math.BigDecimal epsTTM;
+        
+        @Schema(description = "Total revenue (TTM)", example = "383285000000")
         private java.math.BigDecimal revenueTTM;
+        
+        @Schema(description = "Shares outstanding", example = "15550061000")
         private Long sharesOutstanding;
+        
+        @Schema(description = "Operating margin percentage", example = "0.2987")
         private java.math.BigDecimal operatingMargin;
+        
+        @Schema(description = "Profit margin percentage", example = "0.2531")
         private java.math.BigDecimal profitMargin;
+        
+        @Schema(description = "Exchange where stock is listed", example = "NASDAQ")
         private String exchange;
+        
+        @Schema(description = "Business sector", example = "Technology")
         private String sector;
+        
+        @Schema(description = "Data quality: COMPLETE, PARTIAL, or STALE", example = "COMPLETE")
         private String dataQuality;
+        
+        @Schema(description = "Data source: FINNHUB, MANUAL, or CALCULATED", example = "FINNHUB")
         private String dataSource;
+        
+        @Schema(description = "Last time data was updated")
         private java.time.LocalDateTime lastUpdatedAt;
     }
 }
