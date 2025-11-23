@@ -240,7 +240,7 @@ public class WatchlistMapper {
             BigDecimal discount = fairPrice.subtract(currentPrice)
                     .divide(fairPrice, 4, java.math.RoundingMode.HALF_UP);
             response.setDiscountToFairPrice(discount);
-            response.setUndervalued(discount.compareTo(BigDecimal.ZERO) > 0);
+            // Undervalued flag is now calculated based on DCF Fair Value (see below)
         }
         
         // Desviación del precio objetivo manual
@@ -269,6 +269,9 @@ public class WatchlistMapper {
             BigDecimal marginOfSafety = financialMetricsService.calculateMarginOfSafety(
                     dcfValue, currentPrice);
             response.setMarginOfSafety(marginOfSafety);
+            
+            // GOLDEN RULE: Undervalued if Current Price < DCF Fair Value
+            response.setUndervalued(currentPrice.compareTo(dcfValue) < 0);
         }
         
         // Payback Period
