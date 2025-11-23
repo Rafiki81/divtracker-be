@@ -17,7 +17,7 @@ public class FinnhubConfig {
         return WebClient.builder()
             .baseUrl(properties.getApiUrl())
                 .exchangeStrategies(ExchangeStrategies.builder()
-                        .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(256 * 1024))
+                        .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024)) // 10MB buffer for large symbol lists
                         .build())
                 .build();
     }
