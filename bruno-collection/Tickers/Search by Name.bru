@@ -1,0 +1,35 @@
+meta {
+  name: Search by Name
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{base_url}}/api/v1/tickers/search?q=Apple
+  body: none
+  auth: bearer
+}
+
+params:query {
+  q: Apple
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+docs {
+  # Search by Name
+  
+  Busca tickers por nombre de compañía. Búsqueda fuzzy.
+  
+  ## Ejemplos
+  
+  - `q=Apple` → AAPL (Apple Inc)
+  - `q=Microsoft` → MSFT (Microsoft Corp)
+  - `q=Tesla` → TSLA (Tesla Inc)
+  
+  ## Uso recomendado
+  
+  Para buscar compañías por nombre cuando el usuario no sabe el ticker exacto.
+}

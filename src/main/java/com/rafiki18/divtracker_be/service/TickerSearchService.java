@@ -23,10 +23,37 @@ public class TickerSearchService {
     private final FinnhubClient finnhubClient;
     
     /**
-     * Search for tickers by query (company name or symbol).
-     * Returns a list of matching results from Finnhub.
+     * Look up ticker symbols using exact symbol matching.
+     * Best for validating and finding variations of a specific ticker (e.g., BAM, BAM.A).
      *
-     * @param query Search term (e.g., "Apple", "AAPL", "Microsoft")
+     * @param query Ticker symbol to look up (e.g., "BAM", "AAPL")
+     * @return List of matching ticker symbols from US exchanges
+     */
+    public List<TickerSearchResult> lookupTicker(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            log.debug("Empty lookup query provided");
+            return Collections.emptyList();
+        }
+        
+        if (!finnhubClient.isEnabled()) {
+            log.warn("Finnhub is not enabled, ticker lookup unavailable");
+            return Collections.emptyList();
+        }
+        
+        String normalizedQuery = query.trim();
+        log.debug("Looking up ticker symbols for: {}", normalizedQuery);
+        
+        List<TickerSearchResult> results = finnhubClient.lookupSymbol(normalizedQuery);
+        log.info("Found {} ticker symbols for lookup: {}", results.size(), normalizedQuery);
+        
+        return results;
+    }
+
+    /**
+     * Search for tickers by query (company name or symbol).
+     * Best for finding companies by name (e.g., "Apple" -> AAPL).
+     *
+     * @param query Search term (e.g., "Apple", "Microsoft")
      * @return List of matching ticker results, limited to 20
      */
     public List<TickerSearchResult> searchTickers(String query) {

@@ -1,0 +1,46 @@
+meta {
+  name: Lookup Symbol
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/v1/tickers/lookup?symbol=BAM
+  body: none
+  auth: bearer
+}
+
+params:query {
+  symbol: BAM
+}
+
+auth:bearer {
+  token: {{auth_token}}
+}
+
+docs {
+  # Lookup Symbol (Symbol Lookup)
+  
+  Busca símbolos exactos en exchanges US. Ideal para encontrar variaciones de un ticker específico.
+  
+  ## Ejemplo: BAM
+  
+  Retornará símbolos como:
+  - BAM (Brookfield Asset Management)
+  - BAM.A
+  - BAM.B
+  - etc.
+  
+  ## Uso recomendado
+  
+  1. Usuario escribe "BAM"
+  2. App llama a `/api/v1/tickers/lookup?symbol=BAM`
+  3. Backend devuelve todas las variaciones
+  4. Usuario selecciona el símbolo exacto (ej: "BAM")
+  5. App crea watchlist item con el símbolo validado
+  
+  ## Diferencia con /search
+  
+  - `/lookup`: Busca símbolos exactos (BAM → BAM, BAM.A, BAM.B)
+  - `/search`: Busca por nombre de compañía (apple → AAPL, APLE, etc.)
+}

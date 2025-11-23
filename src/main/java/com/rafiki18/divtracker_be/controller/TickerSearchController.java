@@ -33,10 +33,64 @@ public class TickerSearchController {
     private final TickerSearchService tickerSearchService;
     
     @Operation(
-        summary = "Buscar tickers",
-        description = "Busca tickers de acciones por nombre de empresa o símbolo. " +
-                "La búsqueda es flexible y devolverá resultados coincidentes aunque la consulta sea parcial. " +
-                "Por ejemplo: 'apple', 'AAPL', 'microsoft', 'MSFT', 'tesla', etc. " +
+        summary = "Buscar símbolos exactos (Symbol Lookup)",
+        description = "Busca símbolos de acciones en exchanges US usando coincidencia exacta. " +
+                "Ideal para encontrar variaciones de un ticker específico (ej: BAM, BAM.A, BAM.B). " +
+                "Retorna símbolos que comienzan con el query proporcionado. " +
+                "Ejemplo: 'BAM' retornará BAM, BAM.A, BAM.TO, etc."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Lista de símbolos encontrados (puede estar vacía si no hay coincidencias)",
+            content = @Content(
+                mediaType = "application/json",
+                array = @ArraySchema(schema = @Schema(implementation = TickerSearchResult.class))
+            )
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Query inválido o vacío",
+            content = @Content(mediaType = "application/json")
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "No autenticado",
+            content = @Content(mediaType = "application/json")
+        ),
+        @ApiResponse(
+            responseCode = "503",
+            description = "Servicio de búsqueda no disponible (Finnhub deshabilitado)",
+            content = @Content(mediaType = "application/json")
+        )
+    })
+    @GetMapping("/lookup")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<TickerSearchResult>> lookupTicker(
+            @Parameter(
+                description = "Símbolo del ticker a buscar (ej: BAM, AAPL, MSFT)", 
+                example = "BAM",
+                required = true
+            )
+            @RequestParam String symbol
+    ) {
+        if (symbol == null || symbol.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        
+        if (!tickerSearchService.isAvailable()) {
+            return ResponseEntity.status(503).build();
+        }
+        
+        List<TickerSearchResult> results = tickerSearchService.lookupTicker(symbol);
+        return ResponseEntity.ok(results);
+    }
+
+    @Operation(
+        summary = "Buscar tickers por nombre",
+        description = "Busca tickers de acciones por nombre de empresa. " +
+                "La búsqueda es flexible y fuzzy, ideal para buscar por nombre de compañía. " +
+                "Por ejemplo: 'apple', 'microsoft', 'tesla', etc. " +
                 "Retorna hasta 20 resultados ordenados por relevancia."
     )
     @ApiResponses(value = {
@@ -68,7 +122,7 @@ public class TickerSearchController {
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<TickerSearchResult>> searchTickers(
             @Parameter(
-                description = "Término de búsqueda (nombre de empresa o símbolo)", 
+                description = "Término de búsqueda (nombre de empresa)", 
                 example = "Apple",
                 required = true
             )

@@ -58,8 +58,60 @@ public class FinnhubClient {
     }
 
     /**
+     * Lookup symbols from Finnhub using Symbol Lookup API.
+     * Returns all symbols from US exchanges that match the query.
+     * 
+     * @param query Ticker symbol to look up (e.g., "BAM", "AAPL")
+     * @return List of matching symbols with full details
+     */
+    public List<TickerSearchResult> lookupSymbol(String query) {
+        if (!isEnabled() || !StringUtils.hasText(query)) {
+            log.debug("Finnhub disabled or empty query, returning empty results");
+            return Collections.emptyList();
+        }
+
+        try {
+            // Get all US exchange symbols
+            Object response = finnhubWebClient.get()
+                    .uri(builder -> builder
+                            .path("/stock/symbol")
+                            .queryParam("exchange", "US")
+                            .queryParam("token", properties.getApiKey())
+                            .build())
+                    .retrieve()
+                    .bodyToMono(new ParameterizedTypeReference<List<Map<String, Object>>>() {})
+                    .timeout(Duration.ofSeconds(10))
+                    .blockOptional()
+                    .orElse(Collections.emptyList());
+
+            if (!(response instanceof List<?> symbolList)) {
+                log.debug("No symbols returned from Finnhub");
+                return Collections.emptyList();
+            }
+
+            String normalizedQuery = query.trim().toUpperCase();
+            
+            return symbolList.stream()
+                    .filter(Map.class::isInstance)
+                    .map(item -> (Map<?, ?>) item)
+                    .filter(item -> {
+                        String symbol = getString(item, "symbol");
+                        return symbol != null && symbol.toUpperCase().startsWith(normalizedQuery);
+                    })
+                    .map(this::mapToTickerSearchResult)
+                    .filter(result -> result.getSymbol() != null)
+                    .limit(20) // Limit to top 20 matches
+                    .collect(Collectors.toList());
+
+        } catch (Exception ex) {
+            log.warn("Finnhub symbol lookup failed for query '{}': {}", query, ex.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
      * Search for stock symbols by query (name or ticker).
-     * Uses Finnhub Symbol Search API.
+     * Uses Finnhub Symbol Search API for fuzzy search by company name.
      * 
      * @param query Search term (company name or ticker symbol)
      * @return List of matching ticker results
