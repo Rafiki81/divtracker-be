@@ -187,7 +187,7 @@ public class FinnhubClient {
             return resultList.stream()
                     .filter(Map.class::isInstance)
                     .map(item -> (Map<?, ?>) item)
-                    .map(this::mapToTickerSearchResult)
+                    .map(this::mapSearchResultToTickerSearchResult)
                     .filter(result -> result.getSymbol() != null)
                     .limit(20) // Limit to top 20 results
                     .collect(Collectors.toList());
@@ -208,6 +208,21 @@ public class FinnhubClient {
                 .description(getString(data, "description"))
                 .type(getString(data, "type"))
                 .exchange(getString(data, "displaySymbol"))
+                .currency(getString(data, "currency"))
+                .figi(getString(data, "figi"))
+                .build();
+    }
+
+    /**
+     * Map Finnhub search API response to TickerSearchResult.
+     * Search API returns different field names than symbol lookup.
+     */
+    private TickerSearchResult mapSearchResultToTickerSearchResult(Map<?, ?> data) {
+        return TickerSearchResult.builder()
+                .symbol(getString(data, "symbol"))
+                .description(getString(data, "description"))
+                .type(getString(data, "type"))
+                .exchange(getString(data, "primary")) // Search API uses "primary" for exchange
                 .currency(getString(data, "currency"))
                 .figi(getString(data, "figi"))
                 .build();
