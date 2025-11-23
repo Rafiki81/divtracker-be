@@ -288,14 +288,36 @@ import java.util.UUID
 interface WatchlistApiService {
     
     /**
-     * Buscar tickers por nombre o símbolo
+     * Symbol Lookup - Búsqueda exacta de símbolos (RECOMENDADO)
      * 
-     * Búsqueda flexible que acepta:
-     * - Nombre de empresa: "Apple", "Microsoft", "Tesla"
-     * - Símbolo: "AAPL", "MSFT", "TSLA"
-     * - Búsqueda parcial: "appl", "micro", "tes"
+     * Busca símbolos exactos en US exchanges. Retorna todas las variaciones
+     * de un ticker específico (ej: BAM → BAM, BAM.A, BAM.B).
      * 
-     * @param query Término de búsqueda
+     * Este es el endpoint recomendado para el flujo inicial de selección de ticker:
+     * 1. Usuario escribe "BAM"
+     * 2. App llama a lookupSymbol("BAM")
+     * 3. Backend devuelve todas las variaciones (BAM, BAM.A, etc.)
+     * 4. Usuario selecciona el símbolo exacto
+     * 5. App crea watchlist item con el símbolo validado
+     * 
+     * @param symbol Símbolo del ticker (ej: "BAM", "AAPL", "MSFT")
+     * @return Lista de símbolos que comienzan con el query (hasta 20)
+     */
+    @GET("api/v1/tickers/lookup")
+    suspend fun lookupSymbol(
+        @Query("symbol") symbol: String
+    ): Response<List<TickerSearchResult>>
+    
+    /**
+     * Search by Name - Búsqueda fuzzy por nombre de compañía
+     * 
+     * Búsqueda flexible para cuando el usuario no conoce el ticker exacto.
+     * Busca por nombre de empresa:
+     * - "Apple" → AAPL
+     * - "Microsoft" → MSFT
+     * - "Tesla" → TSLA
+     * 
+     * @param query Término de búsqueda (nombre de empresa)
      * @return Lista de hasta 20 resultados coincidentes
      */
     @GET("api/v1/tickers/search")
@@ -762,6 +784,221 @@ sealed class TickerSearchState {
 ---
 
 ## Ejemplos de Uso
+
+### 0. Activity/Fragment - Buscar y Seleccionar Ticker
+
+```kotlin
+package com.yourcompany.divtracker.ui.fragment
+
+import android.os.Bundle
+import android.view.View
+import android.widget.Toast
+import androidx.core.widget.doAfterTextChanged
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.yourcompany.divtracker.R
+import com.yourcompany.divtracker.databinding.FragmentTickerSearchBinding
+import com.yourcompany.divtracker.ui.adapter.TickerSearchAdapter
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+
+class TickerSearchFragment : Fragment(R.layout.fragment_ticker_search) {
+    
+    private var _binding: FragmentTickerSearchBinding? = null
+    private val binding get() = _binding!!
+    
+    private val viewModel: TickerSearchViewModel by viewModels()
+    private lateinit var adapter: TickerSearchAdapter
+    
+    private var searchJob: Job? = null
+    
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        _binding = FragmentTickerSearchBinding.bind(view)
+        
+        setupRecyclerView()
+        setupSearchInput()
+        observeSearchState()
+    }
+    
+    private fun setupRecyclerView() {
+        adapter = TickerSearchAdapter { ticker ->
+            // Usuario seleccionó un ticker
+            val action = TickerSearchFragmentDirections
+                .actionSearchToCreateWatchlist(ticker.symbol)
+            findNavController().navigate(action)
+        }
+        
+        binding.recyclerView.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            this.adapter = this@TickerSearchFragment.adapter
+        }
+    }
+    
+    private fun setupSearchInput() {
+        binding.searchInput.doAfterTextChanged { text ->
+            val query = text?.toString()?.trim() ?: ""
+            
+            // Cancelar búsqueda anterior
+            searchJob?.cancel()
+            
+            if (query.isEmpty()) {
+                adapter.submitList(emptyList())
+                return@doAfterTextChanged
+            }
+            
+            // Debounce: esperar 300ms antes de buscar
+            searchJob = viewLifecycleOwner.lifecycleScope.launch {
+                delay(300)
+                
+                // Symbol Lookup (recomendado) - Búsqueda exacta
+                viewModel.lookupSymbol(query)
+                
+                // Alternativa: Search by Name - Búsqueda fuzzy
+                // viewModel.searchTickers(query)
+            }
+        }
+    }
+    
+    private fun observeSearchState() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.searchState.collect { state ->
+                when (state) {
+                    is TickerSearchState.Idle -> {
+                        binding.progressBar.visibility = View.GONE
+                        binding.emptyView.visibility = View.VISIBLE
+                        binding.emptyView.text = "Escribe un ticker para buscar"
+                    }
+                    
+                    is TickerSearchState.Loading -> {
+                        binding.progressBar.visibility = View.VISIBLE
+                        binding.emptyView.visibility = View.GONE
+                    }
+                    
+                    is TickerSearchState.Success -> {
+                        binding.progressBar.visibility = View.GONE
+                        
+                        if (state.results.isEmpty()) {
+                            binding.emptyView.visibility = View.VISIBLE
+                            binding.emptyView.text = "No se encontraron resultados"
+                            binding.recyclerView.visibility = View.GONE
+                        } else {
+                            binding.emptyView.visibility = View.GONE
+                            binding.recyclerView.visibility = View.VISIBLE
+                            adapter.submitList(state.results)
+                        }
+                    }
+                    
+                    is TickerSearchState.Error -> {
+                        binding.progressBar.visibility = View.GONE
+                        binding.emptyView.visibility = View.VISIBLE
+                        binding.emptyView.text = "Error: ${state.message}"
+                        
+                        Toast.makeText(
+                            requireContext(),
+                            "Error al buscar: ${state.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+        }
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+        searchJob?.cancel()
+    }
+}
+```
+
+**TickerSearchViewModel.kt**:
+```kotlin
+package com.yourcompany.divtracker.ui.viewmodel
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.yourcompany.divtracker.data.model.TickerSearchResult
+import com.yourcompany.divtracker.data.repository.WatchlistRepository
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
+
+sealed class TickerSearchState {
+    object Idle : TickerSearchState()
+    object Loading : TickerSearchState()
+    data class Success(val results: List<TickerSearchResult>) : TickerSearchState()
+    data class Error(val message: String) : TickerSearchState()
+}
+
+class TickerSearchViewModel(
+    private val repository: WatchlistRepository
+) : ViewModel() {
+    
+    private val _searchState = MutableStateFlow<TickerSearchState>(TickerSearchState.Idle)
+    val searchState: StateFlow<TickerSearchState> = _searchState
+    
+    /**
+     * Symbol Lookup - Búsqueda exacta (recomendado)
+     * Busca símbolos que comienzan con el query (BAM -> BAM, BAM.A, BAM.B)
+     */
+    fun lookupSymbol(symbol: String) {
+        if (symbol.isBlank()) {
+            _searchState.value = TickerSearchState.Idle
+            return
+        }
+        
+        viewModelScope.launch {
+            _searchState.value = TickerSearchState.Loading
+            
+            val result = repository.lookupSymbol(symbol)
+            
+            _searchState.value = when {
+                result.isSuccess -> {
+                    TickerSearchState.Success(result.getOrDefault(emptyList()))
+                }
+                else -> {
+                    val error = result.exceptionOrNull()?.message ?: "Error desconocido"
+                    TickerSearchState.Error(error)
+                }
+            }
+        }
+    }
+    
+    /**
+     * Search by Name - Búsqueda fuzzy
+     * Busca por nombre de compañía (Apple -> AAPL)
+     */
+    fun searchTickers(query: String) {
+        if (query.isBlank()) {
+            _searchState.value = TickerSearchState.Idle
+            return
+        }
+        
+        viewModelScope.launch {
+            _searchState.value = TickerSearchState.Loading
+            
+            val result = repository.searchTickers(query)
+            
+            _searchState.value = when {
+                result.isSuccess -> {
+                    TickerSearchState.Success(result.getOrDefault(emptyList()))
+                }
+                else -> {
+                    val error = result.exceptionOrNull()?.message ?: "Error desconocido"
+                    TickerSearchState.Error(error)
+                }
+            }
+        }
+    }
+}
+```
+
+---
 
 ### 1. Activity/Fragment - Listar Watchlist
 

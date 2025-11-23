@@ -19,7 +19,7 @@ DivTracker es una aplicación backend REST API para análisis financiero avanzad
 
 - 🔐 **Autenticación JWT** con OAuth2 (Google)
 - 📈 **Datos de mercado en tiempo real** vía Finnhub API
-- 🔍 **Búsqueda flexible de tickers** - por nombre o símbolo con autocompletado
+- 🔍 **Búsqueda de tickers dual** - Symbol Lookup (exacta) y Search (fuzzy) con autocompletado
 - 🤖 **Cálculos automáticos inteligentes** - 4 modos de creación:
   - ⚡ **Modo 1**: Solo ticker → calcula targetPrice + targetPfcf automáticamente
   - 🎯 **Modo 2**: ticker + targetPfcf → calcula targetPrice
@@ -260,7 +260,29 @@ Content-Type: application/json
 ### Watchlist
 
 ```bash
-# Buscar tickers (requiere JWT)
+# Symbol Lookup - Búsqueda exacta (recomendado)
+GET /api/v1/tickers/lookup?symbol=BAM
+Authorization: Bearer {token}
+
+# Response
+[
+  {
+    "symbol": "BAM",
+    "description": "Brookfield Asset Management Inc",
+    "type": "Common Stock",
+    "exchange": "NYSE",
+    "currency": "USD"
+  },
+  {
+    "symbol": "BAM.A",
+    "description": "Brookfield Asset Management Ltd Class A",
+    "type": "Common Stock",
+    "exchange": "NYSE",
+    "currency": "USD"
+  }
+]
+
+# Search by Name - Búsqueda fuzzy
 GET /api/v1/tickers/search?q=apple
 Authorization: Bearer {token}
 

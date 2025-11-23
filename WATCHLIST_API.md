@@ -51,17 +51,64 @@ Authorization: Bearer <token>
 
 ### 0. Buscar Tickers
 
+#### 0.1. Symbol Lookup (Búsqueda Exacta) - **RECOMENDADO**
+
+```http
+GET /api/v1/tickers/lookup?symbol={ticker}
+```
+
+**Descripción**: Busca símbolos exactos en exchanges US. Ideal para encontrar variaciones de un ticker específico (ej: BAM → BAM, BAM.A, BAM.B). **Este endpoint es el recomendado para el flujo inicial de selección de ticker.**
+
+**Parámetros de Query:**
+- `symbol` (requerido): Símbolo del ticker a buscar (1-12 caracteres)
+  - Ejemplos: "BAM", "AAPL", "MSFT"
+  - Busca símbolos que comienzan con el valor proporcionado
+  - Retorna coincidencias exactas de US exchanges
+
+**Respuesta 200 OK:**
+```json
+[
+  {
+    "symbol": "BAM",
+    "description": "Brookfield Asset Management Inc",
+    "type": "Common Stock",
+    "exchange": "NYSE",
+    "currency": "USD",
+    "figi": "BBG000C46HM9"
+  },
+  {
+    "symbol": "BAM.A",
+    "description": "Brookfield Asset Management Ltd Class A",
+    "type": "Common Stock",
+    "exchange": "NYSE",
+    "currency": "USD",
+    "figi": "BBG00YWGZ6V9"
+  }
+]
+```
+
+**Flujo recomendado:**
+1. Usuario escribe "BAM" en el campo de búsqueda
+2. App llama a `/api/v1/tickers/lookup?symbol=BAM`
+3. Backend devuelve todas las variaciones (BAM, BAM.A, etc.)
+4. Usuario selecciona el símbolo exacto de la lista
+5. App crea watchlist item con el símbolo validado
+
+---
+
+#### 0.2. Search by Name (Búsqueda Fuzzy)
+
 ```http
 GET /api/v1/tickers/search?q={query}
 ```
 
-**Descripción**: Busca tickers por nombre de empresa o símbolo. Realiza búsqueda flexible contra la API de Finnhub Symbol Search.
+**Descripción**: Busca tickers por nombre de empresa. Realiza búsqueda fuzzy flexible contra la API de Finnhub. Útil cuando el usuario no conoce el ticker exacto.
 
 **Parámetros de Query:**
 - `q` (requerido): Término de búsqueda (mínimo 1 carácter)
-  - Ejemplos: "apple", "AAPL", "micro", "tesla"
+  - Ejemplos: "apple", "microsoft", "tesla"
   - No distingue mayúsculas/minúsculas
-  - Busca coincidencias parciales
+  - Busca coincidencias parciales por nombre de compañía
 
 **Respuesta 200 OK:**
 ```json
@@ -85,14 +132,18 @@ GET /api/v1/tickers/search?q={query}
 ]
 ```
 
+---
+
+#### Respuestas Comunes (Ambos Endpoints)
+
 **Respuesta 400 Bad Request:**
 ```json
 {
   "timestamp": "2025-11-23T10:30:00",
   "status": 400,
   "error": "Bad Request",
-  "message": "Query parameter 'q' is required",
-  "path": "/api/v1/tickers/search"
+  "message": "Query parameter is required",
+  "path": "/api/v1/tickers/lookup"
 }
 ```
 
@@ -103,15 +154,16 @@ GET /api/v1/tickers/search?q={query}
   "status": 503,
   "error": "Service Unavailable",
   "message": "Ticker search service is currently unavailable",
-  "path": "/api/v1/tickers/search"
+  "path": "/api/v1/tickers/lookup"
 }
 ```
 
 **Notas:**
-- Retorna hasta 20 resultados ordenados por relevancia
-- Requiere que Finnhub esté configurado (`FINNHUB_API_KEY`)
-- Útil para implementar autocompletado en UI
-- Responde rápidamente incluso con coincidencias parciales
+- Ambos endpoints retornan hasta 20 resultados
+- Requieren que Finnhub esté configurado (`FINNHUB_API_KEY`)
+- **Lookup** es más rápido y preciso para tickers conocidos
+- **Search** es mejor para buscar por nombre de compañía
+- Útiles para implementar autocompletado en UI
 
 ### 1. Listar Items del Watchlist
 
@@ -418,7 +470,11 @@ DELETE /api/v1/watchlist/{id}
 ### Usando cURL
 
 ```bash
-# Buscar ticker
+# Symbol Lookup (recomendado - búsqueda exacta)
+curl -X GET "http://localhost:8080/api/v1/tickers/lookup?symbol=BAM" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# Search by name (búsqueda fuzzy)
 curl -X GET "http://localhost:8080/api/v1/tickers/search?q=apple" \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
