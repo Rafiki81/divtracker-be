@@ -385,7 +385,11 @@ public class FinnhubClient {
                     .timeout(REQUEST_TIMEOUT)
                     .blockOptional();
         } catch (Exception ex) {
-            log.warn("Finnhub {} request failed for {}: {}", operation, ticker, ex.getMessage());
+            if (ex.getMessage() != null && ex.getMessage().contains("403")) {
+                log.warn("Finnhub {} request forbidden for {} (likely plan limit): {}", operation, ticker, ex.getMessage());
+            } else {
+                log.warn("Finnhub {} request failed for {}: {}", operation, ticker, ex.getMessage());
+            }
             return Optional.empty();
         }
     }

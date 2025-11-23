@@ -68,8 +68,12 @@ public class FinancialMetricsService {
             return null;
         }
 
-        if (discountRate.compareTo(growthRate) <= 0) {
-            log.debug("Discount rate must be greater than growth rate");
+        // Relaxed check: Discount rate only needs to be greater than perpetual growth rate
+        // We assume perpetual growth is half of the projection growth rate
+        BigDecimal perpetualGrowth = growthRate.divide(BigDecimal.valueOf(2), SCALE, ROUNDING);
+        
+        if (discountRate.compareTo(perpetualGrowth) <= 0) {
+            log.debug("Discount rate ({}) must be greater than perpetual growth rate ({})", discountRate, perpetualGrowth);
             return null;
         }
 
@@ -88,8 +92,7 @@ public class FinancialMetricsService {
 
             // Calculate terminal value using Gordon Growth Model
             // Terminal Value = Final FCF × (1 + perpetual growth) / (discount rate - perpetual growth)
-            // Assuming perpetual growth = half of projection growth (conservative)
-            BigDecimal perpetualGrowth = growthRate.divide(BigDecimal.valueOf(2), SCALE, ROUNDING);
+            // Perpetual growth is already calculated above
             BigDecimal terminalFcf = projectedFcf.multiply(BigDecimal.ONE.add(perpetualGrowth));
             BigDecimal terminalValue = terminalFcf.divide(
                     discountRate.subtract(perpetualGrowth), SCALE, ROUNDING);

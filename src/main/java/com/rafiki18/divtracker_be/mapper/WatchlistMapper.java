@@ -183,6 +183,9 @@ public class WatchlistMapper {
         response.setFcfYield(fcfYield);
         
         // DCF (Discounted Cash Flow)
+        log.debug("Calculating DCF for {}: fcf={}, growth={}, discount={}, horizon={}", 
+                response.getTicker(), fcfPerShare, growthRate, discountRate, horizon);
+        
         BigDecimal dcfValue = financialMetricsService.calculateDCF(
                 fcfPerShare, growthRate, discountRate, horizon);
         response.setDcfFairValue(dcfValue);
