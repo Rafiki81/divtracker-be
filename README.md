@@ -20,7 +20,11 @@ DivTracker es una aplicación backend REST API para análisis financiero avanzad
 - 🔐 **Autenticación JWT** con OAuth2 (Google)
 - 📈 **Datos de mercado en tiempo real** vía Finnhub API
 - 🔍 **Búsqueda flexible de tickers** - por nombre o símbolo con autocompletado
-- 🤖 **Carga automática de datos** - crea items solo con el ticker
+- 🤖 **Cálculos automáticos inteligentes** - 4 modos de creación:
+  - ⚡ **Modo 1**: Solo ticker → calcula targetPrice + targetPfcf automáticamente
+  - 🎯 **Modo 2**: ticker + targetPfcf → calcula targetPrice
+  - 💰 **Modo 3**: ticker + targetPrice → calcula targetPfcf
+  - ✏️ **Modo 4**: ticker + ambos valores → usa datos manuales
 - 💰 **Métricas financieras avanzadas**:
   - TIR (Tasa Interna de Retorno)
   - DCF (Discounted Cash Flow) con Gordon Growth Model

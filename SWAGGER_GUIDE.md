@@ -79,14 +79,36 @@ Ahora puedes probar todos los endpoints protegidos.
   ```
   
 - **POST /api/v1/watchlist** - Añadir empresa al watchlist
-  - **Modo 1: Solo ticker** (carga automática de datos desde Finnhub)
+  
+  El sistema soporta **4 modos** con cálculos automáticos inteligentes:
+  
+  - **Modo 1: Automático completo** (solo ticker, calcula TODO)
   ```json
   {
     "ticker": "AAPL"
   }
   ```
+  Sistema calcula: `targetPfcf` y `targetPrice` basado en datos actuales de mercado.
   
-  - **Modo 2: Con datos manuales**
+  - **Modo 2: Solo Target P/FCF** (calcula Target Price)
+  ```json
+  {
+    "ticker": "AAPL",
+    "targetPfcf": 20.0
+  }
+  ```
+  Sistema calcula: `targetPrice = FCF × targetPfcf`
+  
+  - **Modo 3: Solo Target Price** (calcula Target P/FCF)
+  ```json
+  {
+    "ticker": "AAPL",
+    "targetPrice": 150.00
+  }
+  ```
+  Sistema calcula: `targetPfcf = targetPrice / FCF`
+  
+  - **Modo 4: Manual completo** (sin cálculos automáticos)
   ```json
   {
     "ticker": "AAPL",
@@ -94,12 +116,10 @@ Ahora puedes probar todos los endpoints protegidos.
     "targetPrice": 150.50,
     "targetPfcf": 15.5,
     "notifyWhenBelowPrice": false,
-    "notes": "Empresa tecnológica líder",
-    "estimatedFcfGrowthRate": 0.08,
-    "investmentHorizonYears": 5,
-    "discountRate": 0.10
+    "notes": "Análisis manual conservador"
   }
   ```
+  Sistema usa exactamente los valores proporcionados.
   
 - **PATCH /api/v1/watchlist/{id}** - Actualizar empresa (parcial)
   
@@ -149,14 +169,28 @@ La respuesta de cada item del watchlist incluye:
 - **estimatedROI**: Retorno de inversión esperado al horizonte configurado
 - **estimatedIRR**: Tasa Interna de Retorno anual esperada
 
-**Carga automática de datos:**
-Si creas un item solo con el ticker (sin `targetPrice` ni `targetPfcf`), el sistema:
-1. Obtiene `currentPrice` desde Finnhub
-2. Obtiene `freeCashFlowPerShare` desde Finnhub
-3. Calcula automáticamente `targetPfcf = currentPrice / FCF`
-4. Enriquece la respuesta con todas las métricas calculadas
+**Cálculos automáticos inteligentes:**
 
-**Nota:** La carga automática requiere que Finnhub esté configurado (`FINNHUB_API_KEY`).
+El sistema puede calcular valores faltantes de forma bidireccional:
+
+1. **Sin valores** (solo ticker):
+   - Obtiene precio y FCF desde Finnhub
+   - Calcula `targetPfcf = currentPrice / FCF`
+   - Calcula `targetPrice = FCF × targetPfcf`
+
+2. **Solo targetPfcf**:
+   - Obtiene FCF desde Finnhub
+   - Calcula `targetPrice = FCF × targetPfcf`
+
+3. **Solo targetPrice**:
+   - Obtiene FCF desde Finnhub
+   - Calcula `targetPfcf = targetPrice / FCF`
+
+4. **Ambos valores**:
+   - Usa exactamente los valores proporcionados
+   - Solo enriquece con datos actuales de mercado
+
+**Nota:** Los cálculos automáticos requieren que Finnhub esté configurado (`FINNHUB_API_KEY`) y tenga datos de FCF disponibles para el ticker.
 
 ### 🔔 Webhooks de Finnhub
 

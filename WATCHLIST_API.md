@@ -166,9 +166,13 @@ POST /api/v1/watchlist
 Content-Type: application/json
 ```
 
-**Modo 1: Carga Automática (Solo Ticker)**
+El sistema soporta **4 modos diferentes** de crear items, con cálculos automáticos inteligentes:
 
-Si solo proporcionas el ticker, el sistema carga automáticamente los datos desde Finnhub:
+---
+
+#### **Modo 1: Carga Completamente Automática (Solo Ticker)** ⚡
+
+Si solo proporcionas el ticker, el sistema carga **TODO** automáticamente desde Finnhub:
 
 ```json
 {
@@ -177,37 +181,123 @@ Si solo proporcionas el ticker, el sistema carga automáticamente los datos desd
 ```
 
 **El sistema automáticamente:**
-1. Obtiene `currentPrice` desde Finnhub
-2. Obtiene `freeCashFlowPerShare` desde Finnhub  
-3. Calcula `targetPfcf = currentPrice / FCF`
-4. Enriquece la respuesta con todas las métricas
+1. Obtiene `currentPrice` desde Finnhub (ej: $172.15)
+2. Obtiene `freeCashFlowPerShare` desde Finnhub (ej: $6.75)
+3. Calcula `targetPfcf = currentPrice / FCF` (ej: 25.50)
+4. Calcula `targetPrice = FCF × targetPfcf` (ej: $172.13)
+5. Enriquece la respuesta con todas las métricas financieras
 
 **Requisitos:**
 - Finnhub debe estar configurado (`FINNHUB_API_KEY`)
 - El ticker debe existir en Finnhub
-- Finnhub debe tener datos de FCF para el ticker
+- Finnhub debe tener datos de precio y FCF para el ticker
 
-**Respuesta 201 Created (con datos cargados):**
+**Respuesta 201 Created:**
 ```json
 {
   "id": "uuid-here",
   "ticker": "AAPL",
-  "currentPrice": 175.43,
-  "freeCashFlowPerShare": 6.32,
-  "targetPfcf": 27.76,
-  "actualPfcf": 27.76,
-  "fairPriceByPfcf": 175.43,
-  "discountToFairPrice": 0.00,
-  "undervalued": false,
-  "dcfFairValue": 185.20,
-  "fcfYield": 3.60,
-  "marginOfSafety": 5.57,
+  "targetPrice": 172.13,
+  "targetPfcf": 25.50,
+  "currentPrice": 172.15,
+  "freeCashFlowPerShare": 6.75,
+  "actualPfcf": 25.50,
+  "dcfFairValue": 172.13,
+  "marginOfSafety": -0.01,
+  "fcfYield": 3.92,
+  "paybackPeriod": 25.50,
+  "estimatedIRR": 3.92,
+  "estimatedROI": 19.60,
   "createdAt": "2025-11-23T10:30:00",
   "updatedAt": "2025-11-23T10:30:00"
 }
 ```
 
-**Modo 2: Datos Manuales (Tradicional)**
+---
+
+#### **Modo 2: Solo Target P/FCF (Calcula Target Price)** 🎯
+
+Proporciona solo el múltiplo P/FCF deseado:
+
+```json
+{
+  "ticker": "AAPL",
+  "targetPfcf": 20.0
+}
+```
+
+**El sistema automáticamente:**
+1. Obtiene `freeCashFlowPerShare` desde Finnhub (ej: $6.75)
+2. Calcula `targetPrice = FCF × targetPfcf` (ej: $6.75 × 20 = **$135.00**)
+3. Guarda ambos valores
+4. Enriquece con métricas actuales
+
+**Requisitos:**
+- Finnhub debe estar configurado
+- Finnhub debe tener datos de FCF para el ticker
+
+**Respuesta 201 Created:**
+```json
+{
+  "id": "uuid-here",
+  "ticker": "AAPL",
+  "targetPrice": 135.00,
+  "targetPfcf": 20.0,
+  "currentPrice": 172.15,
+  "freeCashFlowPerShare": 6.75,
+  "actualPfcf": 25.50,
+  "dcfFairValue": 135.00,
+  "marginOfSafety": 21.58,
+  "undervalued": false,
+  "createdAt": "2025-11-23T10:30:00"
+}
+```
+
+---
+
+#### **Modo 3: Solo Target Price (Calcula Target P/FCF)** 💰
+
+Proporciona solo el precio objetivo:
+
+```json
+{
+  "ticker": "AAPL",
+  "targetPrice": 150.00
+}
+```
+
+**El sistema automáticamente:**
+1. Obtiene `freeCashFlowPerShare` desde Finnhub (ej: $6.75)
+2. Calcula `targetPfcf = targetPrice / FCF` (ej: $150 / $6.75 = **22.22**)
+3. Guarda ambos valores
+4. Enriquece con métricas actuales
+
+**Requisitos:**
+- Finnhub debe estar configurado
+- Finnhub debe tener datos de FCF para el ticker
+
+**Respuesta 201 Created:**
+```json
+{
+  "id": "uuid-here",
+  "ticker": "AAPL",
+  "targetPrice": 150.00,
+  "targetPfcf": 22.22,
+  "currentPrice": 172.15,
+  "freeCashFlowPerShare": 6.75,
+  "actualPfcf": 25.50,
+  "dcfFairValue": 150.00,
+  "marginOfSafety": 12.86,
+  "undervalued": false,
+  "createdAt": "2025-11-23T10:30:00"
+}
+```
+
+---
+
+#### **Modo 4: Valores Manuales Completos (Sin Cálculos)** ✏️
+
+Proporciona ambos valores manualmente:
 
 ```json
 {
@@ -216,39 +306,80 @@ Si solo proporcionas el ticker, el sistema carga automáticamente los datos desd
   "targetPrice": 150.50,
   "targetPfcf": 15.5,
   "notifyWhenBelowPrice": false,
-  "notes": "Apple Inc.",
-  "estimatedFcfGrowthRate": 0.08,
-  "investmentHorizonYears": 5,
-  "discountRate": 0.10
+  "notes": "Análisis conservador basado en FCF histórico"
 }
 ```
 
-**Validaciones:**
-- `ticker`: Requerido, 1-12 caracteres, alfanumérico con puntos y guiones
-- `targetPrice` o `targetPfcf`: Al menos uno requerido (o ninguno para modo automático)
-- `targetPrice` / `targetPfcf`: Si presente, debe ser > 0
-- `notes`: Máximo 500 caracteres
-- `estimatedFcfGrowthRate`: Opcional, tasa de crecimiento anual del FCF (0.08 = 8%)
-- `investmentHorizonYears`: Opcional, años del horizonte de inversión
-- `discountRate`: Opcional, tasa de descuento para DCF (0.10 = 10%)
+**El sistema:**
+1. **No calcula nada**, usa exactamente tus valores
+2. Solo enriquece con datos actuales de mercado (precio, FCF actual)
+3. Calcula métricas comparativas (margen de seguridad, etc.)
 
 **Respuesta 201 Created:**
 - Header `Location`: URL del recurso creado
 - Body: Item creado con métricas calculadas
 
-**Respuesta 400 Bad Request:**
+---
+
+### Tabla Comparativa de Modos
+
+| Modo | Proporcionas | Sistema Calcula | Requiere Finnhub |
+|------|-------------|-----------------|------------------|
+| **1. Automático** | Solo ticker | targetPrice + targetPfcf | ✅ Sí (precio + FCF) |
+| **2. Target P/FCF** | ticker + targetPfcf | targetPrice | ✅ Sí (FCF) |
+| **3. Target Price** | ticker + targetPrice | targetPfcf | ✅ Sí (FCF) |
+| **4. Manual** | ticker + ambos valores | Nada | ❌ No (opcional para enriquecimiento) |
+
+---
+
+### Validaciones
+
+- `ticker`: Requerido, 1-12 caracteres, alfanumérico con puntos y guiones
+- `targetPrice`: Opcional, pero si presente debe ser > 0
+- `targetPfcf`: Opcional, pero si presente debe ser > 0
+- `notes`: Máximo 500 caracteres
+- Si **no** proporcionas ningún valor, Finnhub **debe estar disponible**
+- Si proporcionas **solo uno**, Finnhub **debe tener datos de FCF**
+
+---
+
+### Errores Comunes
+
+**Sin datos y Finnhub no disponible:**
 ```json
 {
   "timestamp": "2025-11-23T10:30:00",
   "status": 400,
   "error": "Bad Request",
-  "message": "Finnhub service is not available. Please provide targetPrice or targetPfcf manually.",
+  "message": "Debe especificar al menos targetPrice o targetPfcf cuando Finnhub no está disponible.",
+  "path": "/api/v1/watchlist"
+}
+```
+
+**Ticker sin datos en Finnhub:**
+```json
+{
+  "timestamp": "2025-11-23T10:30:00",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "No se pudieron obtener datos de mercado para INVALID. Debes especificar al menos targetPrice o targetPfcf manualmente.",
+  "path": "/api/v1/watchlist"
+}
+```
+
+**Solo targetPrice pero sin FCF disponible:**
+```json
+{
+  "timestamp": "2025-11-23T10:30:00",
+  "status": 400,
+  "error": "Bad Request",
+  "message": "No se pudo obtener FCF para TICKER. Debes especificar targetPfcf manualmente.",
   "path": "/api/v1/watchlist"
 }
 ```
 
 **Respuesta 409 Conflict:** Ticker duplicado para el usuario  
-**Respuesta 400 Bad Request:** Datos inválidos
+**Respuesta 400 Bad Request:** Datos inválidos (valores negativos, formato incorrecto, etc.)
 
 ### 4. Actualizar Item (Parcial)
 

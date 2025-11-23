@@ -396,46 +396,158 @@ class WatchlistServiceTest {
                 .build();
         
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
-        when(marketDataEnrichmentService.isAvailable()).thenReturn(false);
+        when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
+        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
+                .thenReturn(new BigDecimal[]{null, null});
         
         // Act & Assert
         assertThatThrownBy(() -> service.create(userId, autoRequest))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Debe especificar al menos targetPrice o targetPfcf");
+                .hasMessageContaining("No se pudieron obtener datos de mercado");
         
         verify(marketDataEnrichmentService).isAvailable();
-        verify(marketDataEnrichmentService, never()).fetchMarketData(any());
+        verify(marketDataEnrichmentService).fetchMarketData("AAPL");
         verify(repository, never()).save(any());
     }
     
     @Test
-    @DisplayName("create() - Debe usar datos manuales cuando se proporcionan (modo tradicional)")
-    void testCreate_ManualData_SkipsAutoLoad() {
-        // Arrange - Request con targetPrice manual
-        WatchlistItemRequest manualRequest = WatchlistItemRequest.builder()
+    @DisplayName("create() - Debe calcular targetPfcf cuando solo se proporciona targetPrice")
+    void testCreate_CalculatesTargetPfcfFromTargetPrice() {
+        // Arrange - Solo proporciona targetPrice
+        WatchlistItemRequest request = WatchlistItemRequest.builder()
+                .ticker("AAPL")
+                .targetPrice(new BigDecimal("150.00"))
+                .build();
+        
+        BigDecimal fcfPerShare = new BigDecimal("6.00");
+        BigDecimal expectedTargetPfcf = new BigDecimal("25.00"); // 150 / 6 = 25.00
+        
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
+        when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
+        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
+                .thenReturn(new BigDecimal[]{null, fcfPerShare})
+                .thenReturn(new BigDecimal[]{null, null});
+        when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
+        when(repository.save(item)).thenReturn(item);
+        when(mapper.toResponse(item)).thenReturn(response);
+        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
+        
+        // Act
+        WatchlistItemResponse result = service.create(userId, request);
+        
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(request.getTargetPfcf()).isEqualTo(expectedTargetPfcf);
+        assertThat(request.getTargetPrice()).isEqualTo(new BigDecimal("150.00"));
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("AAPL");
+        verify(repository).save(item);
+    }
+    
+    @Test
+    @DisplayName("create() - Debe calcular targetPrice cuando solo se proporciona targetPfcf")
+    void testCreate_CalculatesTargetPriceFromTargetPfcf() {
+        // Arrange - Solo proporciona targetPfcf
+        WatchlistItemRequest request = WatchlistItemRequest.builder()
+                .ticker("AAPL")
+                .targetPfcf(new BigDecimal("20.00"))
+                .build();
+        
+        BigDecimal fcfPerShare = new BigDecimal("7.50");
+        BigDecimal expectedTargetPrice = new BigDecimal("150.00"); // 7.50 × 20 = 150.00
+        
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
+        when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
+        when(marketDataEnrichmentService.fetchMarketData("AAPL"))
+                .thenReturn(new BigDecimal[]{null, fcfPerShare})
+                .thenReturn(new BigDecimal[]{null, null});
+        when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
+        when(repository.save(item)).thenReturn(item);
+        when(mapper.toResponse(item)).thenReturn(response);
+        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
+        
+        // Act
+        WatchlistItemResponse result = service.create(userId, request);
+        
+        // Assert
+        assertThat(result).isNotNull();
+        assertThat(request.getTargetPrice()).isEqualTo(expectedTargetPrice);
+        assertThat(request.getTargetPfcf()).isEqualTo(new BigDecimal("20.00"));
+        verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("AAPL");
+        verify(repository).save(item);
+    }
+    
+    @Test
+    @DisplayName("create() - Debe usar ambos valores cuando se proporcionan (sin calcular)")
+    void testCreate_UsesBothProvidedValues() {
+        // Arrange - Proporciona ambos valores
+        WatchlistItemRequest request = WatchlistItemRequest.builder()
                 .ticker("AAPL")
                 .targetPrice(new BigDecimal("150.50"))
+                .targetPfcf(new BigDecimal("15.50"))
                 .build();
         
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
-        when(mapper.toEntity(manualRequest, userId)).thenReturn(item);
+        when(mapper.toEntity(request, userId)).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
-        // Llamada durante enrichWithMarketData()
         when(marketDataEnrichmentService.fetchMarketData("AAPL"))
                 .thenReturn(new BigDecimal[]{null, null});
         doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
         // Act
-        WatchlistItemResponse result = service.create(userId, manualRequest);
+        WatchlistItemResponse result = service.create(userId, request);
         
         // Assert
         assertThat(result).isNotNull();
-        // No debe llamar a isAvailable porque ya tiene targetPrice
-        verify(marketDataEnrichmentService, never()).isAvailable();
-        // Se llama una vez en enrichWithMarketData(), pero no durante create()
+        assertThat(request.getTargetPrice()).isEqualTo(new BigDecimal("150.50"));
+        assertThat(request.getTargetPfcf()).isEqualTo(new BigDecimal("15.50"));
+        // Solo se llama durante enrichWithMarketData(), no durante la lógica de cálculo
         verify(marketDataEnrichmentService).fetchMarketData("AAPL");
         verify(repository).save(item);
+    }
+    
+    @Test
+    @DisplayName("create() - Debe lanzar excepción cuando solo hay targetPrice sin FCF disponible")
+    void testCreate_TargetPriceOnly_NoFCFData() {
+        // Arrange
+        WatchlistItemRequest request = WatchlistItemRequest.builder()
+                .ticker("INVALID")
+                .targetPrice(new BigDecimal("150.00"))
+                .build();
+        
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "INVALID")).thenReturn(false);
+        when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
+        when(marketDataEnrichmentService.fetchMarketData("INVALID"))
+                .thenReturn(new BigDecimal[]{null, null});
+        
+        // Act & Assert
+        assertThatThrownBy(() -> service.create(userId, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No se pudo obtener FCF");
+        
+        verify(repository, never()).save(any());
+    }
+    
+    @Test
+    @DisplayName("create() - Debe lanzar excepción cuando solo hay targetPfcf sin FCF disponible")
+    void testCreate_TargetPfcfOnly_NoFCFData() {
+        // Arrange
+        WatchlistItemRequest request = WatchlistItemRequest.builder()
+                .ticker("INVALID")
+                .targetPfcf(new BigDecimal("20.00"))
+                .build();
+        
+        when(repository.existsByUserIdAndTickerIgnoreCase(userId, "INVALID")).thenReturn(false);
+        when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
+        when(marketDataEnrichmentService.fetchMarketData("INVALID"))
+                .thenReturn(new BigDecimal[]{null, null});
+        
+        // Act & Assert
+        assertThatThrownBy(() -> service.create(userId, request))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("No se pudo obtener FCF");
+        
+        verify(repository, never()).save(any());
     }
     
     @Test
@@ -445,6 +557,7 @@ class WatchlistServiceTest {
         WatchlistItemRequest lowerCaseRequest = WatchlistItemRequest.builder()
                 .ticker("aapl")
                 .targetPrice(new BigDecimal("150.50"))
+                .targetPfcf(new BigDecimal("15.50"))
                 .build();
         
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
@@ -464,8 +577,8 @@ class WatchlistServiceTest {
     }
     
     @Test
-    @DisplayName("create() - Debe calcular targetPfcf correctamente desde datos de mercado")
-    void testCreate_CalculatesTargetPfcfCorrectly() {
+    @DisplayName("create() - Debe calcular targetPfcf Y targetPrice correctamente desde datos de mercado")
+    void testCreate_CalculatesBothValuesFromMarketData() {
         // Arrange
         WatchlistItemRequest autoRequest = WatchlistItemRequest.builder()
                 .ticker("MSFT")
@@ -474,6 +587,7 @@ class WatchlistServiceTest {
         BigDecimal price = new BigDecimal("380.00");
         BigDecimal fcf = new BigDecimal("15.00");
         BigDecimal expectedPfcf = new BigDecimal("25.33"); // 380/15 = 25.33
+        BigDecimal expectedPrice = new BigDecimal("379.95"); // 15 × 25.33 = 379.95
         
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "MSFT")).thenReturn(false);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
@@ -484,11 +598,13 @@ class WatchlistServiceTest {
         WatchlistItem msftItem = WatchlistItem.builder()
                 .ticker("MSFT")
                 .targetPfcf(expectedPfcf)
+                .targetPrice(expectedPrice)
                 .build();
         
         WatchlistItemResponse msftResponse = WatchlistItemResponse.builder()
                 .ticker("MSFT")
                 .targetPfcf(expectedPfcf)
+                .targetPrice(expectedPrice)
                 .build();
         
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(msftItem);
@@ -501,6 +617,7 @@ class WatchlistServiceTest {
         
         // Assert
         assertThat(autoRequest.getTargetPfcf()).isEqualTo(expectedPfcf);
+        assertThat(autoRequest.getTargetPrice()).isEqualTo(expectedPrice);
         verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("MSFT");
     }
 }

@@ -58,30 +58,71 @@ public class WatchlistService {
             throw new DuplicateTickerException(normalizedTicker);
         }
         
-        // Si no se especificó targetPrice ni targetPfcf, intentar cargar datos de Finnhub
+        // Obtener datos de mercado (siempre, para calcular valores faltantes)
+        BigDecimal currentPrice = null;
+        BigDecimal fcfPerShare = null;
+        
+        if (marketDataEnrichmentService.isAvailable()) {
+            BigDecimal[] marketData = marketDataEnrichmentService.fetchMarketData(normalizedTicker);
+            currentPrice = marketData[0];
+            fcfPerShare = marketData[1];
+        }
+        
+        // Caso 1: No se especificó ningún valor → Usar datos de mercado
         if (request.getTargetPrice() == null && request.getTargetPfcf() == null) {
-            if (marketDataEnrichmentService.isAvailable()) {
-                log.info("No target values provided for {}, will fetch from Finnhub", normalizedTicker);
-                BigDecimal[] marketData = marketDataEnrichmentService.fetchMarketData(normalizedTicker);
-                BigDecimal currentPrice = marketData[0];
-                BigDecimal fcfPerShare = marketData[1];
+            if (currentPrice != null && fcfPerShare != null) {
+                // Calcular P/FCF actual como targetPfcf inicial
+                BigDecimal actualPfcf = currentPrice.divide(fcfPerShare, 2, java.math.RoundingMode.HALF_UP);
+                request.setTargetPfcf(actualPfcf);
                 
-                if (currentPrice != null && fcfPerShare != null) {
-                    // Calcular P/FCF actual como targetPfcf inicial
-                    BigDecimal actualPfcf = currentPrice.divide(fcfPerShare, 2, java.math.RoundingMode.HALF_UP);
-                    request.setTargetPfcf(actualPfcf);
-                    log.info("Auto-set targetPfcf={} for {} based on market data", actualPfcf, normalizedTicker);
-                } else {
-                    log.warn("Could not fetch market data for {}. At least targetPrice or targetPfcf is required.", normalizedTicker);
-                    throw new IllegalArgumentException(
-                        "No se pudieron obtener datos de mercado para " + normalizedTicker + 
-                        ". Debes especificar al menos targetPrice o targetPfcf manualmente.");
-                }
+                // Calcular targetPrice = fcfPerShare × targetPfcf
+                BigDecimal calculatedTargetPrice = fcfPerShare.multiply(actualPfcf)
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+                request.setTargetPrice(calculatedTargetPrice);
+                
+                log.info("Auto-set targetPfcf={} and targetPrice={} for {} based on market data", 
+                    actualPfcf, calculatedTargetPrice, normalizedTicker);
             } else {
-                log.warn("Finnhub not available and no target values provided for {}", normalizedTicker);
+                log.warn("Could not fetch market data for {}. At least targetPrice or targetPfcf is required.", normalizedTicker);
                 throw new IllegalArgumentException(
-                    "Debe especificar al menos targetPrice o targetPfcf cuando Finnhub no está disponible.");
+                    "No se pudieron obtener datos de mercado para " + normalizedTicker + 
+                    ". Debes especificar al menos targetPrice o targetPfcf manualmente.");
             }
+        }
+        // Caso 2: Solo se especificó targetPfcf → Calcular targetPrice
+        else if (request.getTargetPrice() == null && request.getTargetPfcf() != null) {
+            if (fcfPerShare != null) {
+                BigDecimal calculatedTargetPrice = fcfPerShare.multiply(request.getTargetPfcf())
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+                request.setTargetPrice(calculatedTargetPrice);
+                log.info("Calculated targetPrice={} from targetPfcf={} for {}", 
+                    calculatedTargetPrice, request.getTargetPfcf(), normalizedTicker);
+            } else {
+                log.warn("Cannot calculate targetPrice without FCF data for {}", normalizedTicker);
+                throw new IllegalArgumentException(
+                    "No se pudo obtener FCF para " + normalizedTicker + 
+                    ". Debes especificar targetPrice manualmente.");
+            }
+        }
+        // Caso 3: Solo se especificó targetPrice → Calcular targetPfcf
+        else if (request.getTargetPrice() != null && request.getTargetPfcf() == null) {
+            if (fcfPerShare != null && fcfPerShare.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal calculatedTargetPfcf = request.getTargetPrice()
+                    .divide(fcfPerShare, 2, java.math.RoundingMode.HALF_UP);
+                request.setTargetPfcf(calculatedTargetPfcf);
+                log.info("Calculated targetPfcf={} from targetPrice={} for {}", 
+                    calculatedTargetPfcf, request.getTargetPrice(), normalizedTicker);
+            } else {
+                log.warn("Cannot calculate targetPfcf without FCF data for {}", normalizedTicker);
+                throw new IllegalArgumentException(
+                    "No se pudo obtener FCF para " + normalizedTicker + 
+                    ". Debes especificar targetPfcf manualmente.");
+            }
+        }
+        // Caso 4: Se especificaron ambos → Usar valores del usuario
+        else {
+            log.info("Using user-provided targetPrice={} and targetPfcf={} for {}", 
+                request.getTargetPrice(), request.getTargetPfcf(), normalizedTicker);
         }
         
         // Crear y guardar el item
