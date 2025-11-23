@@ -19,7 +19,6 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
@@ -32,7 +31,6 @@ import com.rafiki18.divtracker_be.dto.WatchlistItemResponse;
 import com.rafiki18.divtracker_be.exception.DuplicateTickerException;
 import com.rafiki18.divtracker_be.exception.WatchlistItemNotFoundException;
 import com.rafiki18.divtracker_be.mapper.WatchlistMapper;
-import com.rafiki18.divtracker_be.marketdata.stream.WatchlistTickerSubscriptionService;
 import com.rafiki18.divtracker_be.model.WatchlistItem;
 import com.rafiki18.divtracker_be.repository.WatchlistItemRepository;
 
@@ -46,9 +44,6 @@ class WatchlistServiceTest {
     @Mock
     private WatchlistMapper mapper;
     
-    @Mock
-    private WatchlistTickerSubscriptionService tickerSubscriptionService;
-
     @Mock
     private MarketDataEnrichmentService marketDataEnrichmentService;
 
@@ -134,7 +129,6 @@ class WatchlistServiceTest {
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
         when(marketDataEnrichmentService.fetchMarketData("AAPL")).thenReturn(new BigDecimal[]{null, null, null, null, null, null});
-        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
         // Act
         WatchlistItemResponse result = service.create(userId, request);
@@ -147,7 +141,6 @@ class WatchlistServiceTest {
         verify(repository).save(item);
         verify(mapper).toEntity(request, userId);
         verify(mapper).toResponse(item);
-        verify(tickerSubscriptionService).registerTicker("AAPL");
     }
     
     @Test
@@ -189,7 +182,6 @@ class WatchlistServiceTest {
         verify(mapper).updateEntityFromRequest(item, updateRequest);
         verify(repository).save(item);
         verify(mapper).toResponse(item);
-        verifyNoInteractions(tickerSubscriptionService);
     }
     
     @Test
@@ -234,16 +226,12 @@ class WatchlistServiceTest {
     void testDelete_Success() {
         // Arrange
         when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.of(item));
-        doNothing().when(repository).delete(item);
-        doNothing().when(tickerSubscriptionService).unregisterTicker("AAPL");
-        
         // Act
         service.delete(userId, itemId);
         
         // Assert
         verify(repository).findByUserIdAndId(userId, itemId);
         verify(repository).delete(item);
-        verify(tickerSubscriptionService).unregisterTicker("AAPL");
     }
 
     @Test
@@ -270,16 +258,12 @@ class WatchlistServiceTest {
             item.setTicker("MSFT");
             return null;
         }).when(mapper).updateEntityFromRequest(item, updateRequest);
-        doNothing().when(tickerSubscriptionService).unregisterTicker("AAPL");
-        doNothing().when(tickerSubscriptionService).registerTicker("MSFT");
 
         // Act
         WatchlistItemResponse result = service.update(userId, itemId, updateRequest);
 
         // Assert
         assertThat(result).isNotNull();
-        verify(tickerSubscriptionService).unregisterTicker("AAPL");
-        verify(tickerSubscriptionService).registerTicker("MSFT");
     }
     
     @Test
@@ -350,7 +334,6 @@ class WatchlistServiceTest {
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
-        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
         // Act
         WatchlistItemResponse result = service.create(userId, autoRequest);
@@ -387,7 +370,6 @@ class WatchlistServiceTest {
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithoutTargets);
         when(repository.save(itemWithoutTargets)).thenReturn(itemWithoutTargets);
         when(mapper.toResponse(itemWithoutTargets)).thenReturn(responseWithoutTargets);
-        doNothing().when(tickerSubscriptionService).registerTicker("INVALID");
         
         // Act
         WatchlistItemResponse result = service.create(userId, autoRequest);
@@ -401,7 +383,6 @@ class WatchlistServiceTest {
         verify(marketDataEnrichmentService).isAvailable();
         verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("INVALID");
         verify(repository).save(itemWithoutTargets);
-        verify(tickerSubscriptionService).registerTicker("INVALID");
     }
     
     @Test
@@ -427,7 +408,6 @@ class WatchlistServiceTest {
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithoutTargets);
         when(repository.save(itemWithoutTargets)).thenReturn(itemWithoutTargets);
         when(mapper.toResponse(itemWithoutTargets)).thenReturn(responseWithoutTargets);
-        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
         // Act
         WatchlistItemResponse result = service.create(userId, autoRequest);
@@ -441,7 +421,6 @@ class WatchlistServiceTest {
         verify(marketDataEnrichmentService).isAvailable();
         verify(marketDataEnrichmentService, org.mockito.Mockito.times(2)).fetchMarketData("AAPL");
         verify(repository).save(itemWithoutTargets);
-        verify(tickerSubscriptionService).registerTicker("AAPL");
     }
     
     @Test
@@ -464,7 +443,6 @@ class WatchlistServiceTest {
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
-        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
         // Act
         WatchlistItemResponse result = service.create(userId, request);
@@ -497,7 +475,6 @@ class WatchlistServiceTest {
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
         when(mapper.toResponse(item)).thenReturn(response);
-        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
         // Act
         WatchlistItemResponse result = service.create(userId, request);
@@ -526,7 +503,6 @@ class WatchlistServiceTest {
         when(mapper.toResponse(item)).thenReturn(response);
         when(marketDataEnrichmentService.fetchMarketData("AAPL"))
                 .thenReturn(new BigDecimal[]{null, null, null, null, null, null});
-        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
         // Act
         WatchlistItemResponse result = service.create(userId, request);
@@ -566,7 +542,6 @@ class WatchlistServiceTest {
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithTargetPriceOnly);
         when(repository.save(itemWithTargetPriceOnly)).thenReturn(itemWithTargetPriceOnly);
         when(mapper.toResponse(itemWithTargetPriceOnly)).thenReturn(responseWithTargetPriceOnly);
-        doNothing().when(tickerSubscriptionService).registerTicker("INVALID");
         
         // Act
         WatchlistItemResponse result = service.create(userId, request);
@@ -577,7 +552,6 @@ class WatchlistServiceTest {
         assertThat(request.getTargetPfcf()).isNull();
         
         verify(repository).save(itemWithTargetPriceOnly);
-        verify(tickerSubscriptionService).registerTicker("INVALID");
     }
     
     @Test
@@ -606,7 +580,6 @@ class WatchlistServiceTest {
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(itemWithTargetPfcfOnly);
         when(repository.save(itemWithTargetPfcfOnly)).thenReturn(itemWithTargetPfcfOnly);
         when(mapper.toResponse(itemWithTargetPfcfOnly)).thenReturn(responseWithTargetPfcfOnly);
-        doNothing().when(tickerSubscriptionService).registerTicker("INVALID");
         
         // Act
         WatchlistItemResponse result = service.create(userId, request);
@@ -617,7 +590,6 @@ class WatchlistServiceTest {
         assertThat(request.getTargetPrice()).isNull();
         
         verify(repository).save(itemWithTargetPfcfOnly);
-        verify(tickerSubscriptionService).registerTicker("INVALID");
     }
     
     @Test
@@ -636,14 +608,12 @@ class WatchlistServiceTest {
         when(mapper.toResponse(item)).thenReturn(response);
         when(marketDataEnrichmentService.fetchMarketData("AAPL"))
                 .thenReturn(new BigDecimal[]{null, null, null, null, null, null});
-        doNothing().when(tickerSubscriptionService).registerTicker("AAPL");
         
         // Act
         service.create(userId, lowerCaseRequest);
         
         // Assert
         verify(repository).existsByUserIdAndTickerIgnoreCase(userId, "AAPL");
-        verify(tickerSubscriptionService).registerTicker("AAPL");
     }
     
     @Test
@@ -680,7 +650,6 @@ class WatchlistServiceTest {
         when(mapper.toEntity(any(WatchlistItemRequest.class), any(UUID.class))).thenReturn(msftItem);
         when(repository.save(msftItem)).thenReturn(msftItem);
         when(mapper.toResponse(msftItem)).thenReturn(msftResponse);
-        doNothing().when(tickerSubscriptionService).registerTicker("MSFT");
         
         // Act
         service.create(userId, autoRequest);

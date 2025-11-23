@@ -13,7 +13,6 @@ import com.rafiki18.divtracker_be.dto.WatchlistItemResponse;
 import com.rafiki18.divtracker_be.exception.DuplicateTickerException;
 import com.rafiki18.divtracker_be.exception.WatchlistItemNotFoundException;
 import com.rafiki18.divtracker_be.mapper.WatchlistMapper;
-import com.rafiki18.divtracker_be.marketdata.stream.WatchlistTickerSubscriptionService;
 import com.rafiki18.divtracker_be.model.WatchlistItem;
 import com.rafiki18.divtracker_be.repository.WatchlistItemRepository;
 
@@ -27,7 +26,6 @@ public class WatchlistService {
     
     private final WatchlistItemRepository watchlistItemRepository;
     private final WatchlistMapper watchlistMapper;
-    private final WatchlistTickerSubscriptionService tickerSubscriptionService;
     private final MarketDataEnrichmentService marketDataEnrichmentService;
     
     /**
@@ -150,7 +148,6 @@ public class WatchlistService {
         // Crear y guardar el item
         WatchlistItem item = watchlistMapper.toEntity(request, userId);
         WatchlistItem savedItem = watchlistItemRepository.save(item);
-        tickerSubscriptionService.registerTicker(savedItem.getTicker());
         
         log.info("Created watchlist item {} for user {}", savedItem.getId(), userId);
         WatchlistItemResponse response = watchlistMapper.toResponse(savedItem);
@@ -171,7 +168,6 @@ public class WatchlistService {
                     log.warn("Watchlist item {} not found for user {}", id, userId);
                     return new WatchlistItemNotFoundException(userId, id);
                 });
-        String previousTicker = item.getTicker();
         
         // Si se está actualizando el ticker, validar que no exista otro con el mismo ticker
         if (request.getTicker() != null && !request.getTicker().isEmpty()) {
@@ -189,13 +185,6 @@ public class WatchlistService {
         
         // Guardar
         WatchlistItem updatedItem = watchlistItemRepository.save(item);
-        if (request.getTicker() != null && !request.getTicker().isBlank()) {
-            String newTicker = updatedItem.getTicker();
-            if (!previousTicker.equalsIgnoreCase(newTicker)) {
-                tickerSubscriptionService.unregisterTicker(previousTicker);
-                tickerSubscriptionService.registerTicker(newTicker);
-            }
-        }
         
         log.info("Updated watchlist item {} for user {}", id, userId);
         WatchlistItemResponse response = watchlistMapper.toResponse(updatedItem);
@@ -218,7 +207,6 @@ public class WatchlistService {
                 });
         
         watchlistItemRepository.delete(item);
-        tickerSubscriptionService.unregisterTicker(item.getTicker());
         log.info("Deleted watchlist item {} for user {}", id, userId);
     }
     

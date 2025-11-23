@@ -33,8 +33,9 @@ DivTracker es una aplicación backend REST API para análisis financiero avanzad
   - Periodo de Payback
   - ROI Estimado
 - 🔔 **Webhooks de Finnhub** para actualizaciones en tiempo real de precios
-- 🗄️ **PostgreSQL** con migraciones Flyway
-- 📝 **OpenAPI/Swagger** para documentación interactiva
+- 🛠️ **Herramientas de Administración** para gestión manual de datos y limpieza
+- 🗄️ **PostgreSQL** con migraciones Flyway (Optimizado con esquema V7)
+- 📝 **OpenAPI/Swagger** y **Bruno Collection** para documentación y testing
 - 🐳 **Docker** y **AWS Elastic Beanstalk** ready
 - 🏗️ **AWS CDK (Go)** para infraestructura como código
 - 🚀 **GitHub Actions** para CI/CD automatizado
@@ -68,6 +69,16 @@ DivTracker es una aplicación backend REST API para análisis financiero avanzad
 
 ```
 divtracker-be/
+├── bruno-collection/         # Colección de requests para Bruno API Client
+│   ├── Admin/                # Endpoints de administración
+│   ├── Auth/                 # Autenticación
+│   ├── Fundamentals/         # Gestión de datos fundamentales
+│   ├── Health/               # Health checks
+│   ├── Test/                 # Tests de conectividad
+│   ├── Tickers/              # Búsqueda de símbolos
+│   ├── Watchlist/            # Gestión de watchlist
+│   ├── Webhooks/             # Tests de webhooks
+│   └── environments/         # Configuración de entornos (Local, AWS)
 ├── src/
 │   ├── main/
 │   │   ├── java/com/rafiki18/divtracker_be/
@@ -353,6 +364,29 @@ Authorization: Bearer {token}
 # Eliminar item
 DELETE /api/v1/watchlist/{id}
 Authorization: Bearer {token}
+
+### Fundamentals & Admin
+
+```bash
+# Refrescar Fundamentals (Manual)
+POST /api/v1/fundamentals/{ticker}/refresh
+Authorization: Bearer {token}
+
+# Admin: Refrescar Stale Fundamentals (>24h)
+POST /api/v1/admin/refresh-fundamentals
+Authorization: Bearer {token}
+
+# Admin: Limpiar Fundamentals Antiguos (>30 días)
+POST /api/v1/admin/cleanup-old-fundamentals
+Authorization: Bearer {token}
+```
+
+---
+
+## 💡 Métricas Financieras
+```
+
+### WebSocket
 ```
 
 ### WebSocket
@@ -478,20 +512,31 @@ _*Opcional para testing sin datos reales_
 
 Ver [infrastructure/README.md](infrastructure/README.md) para detalles completos sobre CDK y arquitectura AWS.
 
-### Quick Deploy a AWS
+### Quick Deploy a AWS (Manual con CDK)
 
 ```bash
-# 1. Inicializar infraestructura (solo primera vez)
-make infra-init-backend
-make infra-init
+# 1. Instalar dependencias
+make infra-deps
 
-# 2. Configurar variables
-cd infrastructure/terraform/environments/prod
-cp terraform.tfvars.example terraform.tfvars
-# Editar terraform.tfvars con tus valores
+# 2. Sintetizar template CloudFormation
+make infra-synth
 
-# 3. Deploy completo
-make deploy-full
+# 3. Desplegar infraestructura
+make infra-deploy
+# Nota: Requiere credenciales AWS configuradas en tu terminal
+
+# 4. Ver outputs (URLs, etc)
+make infra-output
+```
+
+### Verificación y Logs
+
+```bash
+# Verificar salud de la aplicación
+make verify-health
+
+# Ver logs en tiempo real
+make logs-prod
 ```
 
 ---
@@ -550,7 +595,6 @@ make infra-destroy     # Destruir infraestructura
 - **Spring Boot 3.5.6** - Framework
 - **Spring Security** - Autenticación/Autorización
 - **Spring Data JPA** - ORM
-- **Spring WebSocket** - Comunicación en tiempo real
 
 ### Base de Datos
 - **PostgreSQL 15** - Base de datos principal
@@ -563,7 +607,7 @@ make infra-destroy     # Destruir infraestructura
 
 ### DevOps
 - **Docker** - Contenedores
-- **Terraform** - Infrastructure as Code
+- **AWS CDK (Go)** - Infrastructure as Code
 - **AWS Elastic Beanstalk** - Hosting
 - **AWS RDS** - Base de datos gestionada
 - **GitHub Actions** - CI/CD
@@ -587,7 +631,7 @@ make infra-destroy     # Destruir infraestructura
 - [x] CRUD de Watchlist
 - [x] Integración con Finnhub
 - [x] Métricas financieras avanzadas
-- [x] WebSocket para datos en tiempo real
+- [x] Webhooks para datos en tiempo real
 - [x] Tests unitarios y de integración
 - [x] Infraestructura AWS con Terraform
 - [x] CI/CD con scripts automatizados

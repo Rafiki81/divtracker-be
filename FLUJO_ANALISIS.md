@@ -95,7 +95,6 @@ watchlist_items (
 ✅ FinnhubClient.fetchFreeCashFlowPerShare() // /stock/metric
 ✅ FinnhubClient.lookupSymbol()             // /stock/symbol
 ✅ FinnhubClient.searchSymbols()            // /search
-✅ FinnhubStreamingClient (WebSocket)       // wss://ws.finnhub.io
 ✅ FinnhubWebhookService                    // POST /api/webhooks/finnhub
 ```
 
@@ -105,7 +104,6 @@ watchlist_items (
 - ✅ Precio actual (`/quote`)
 - ✅ FCF por acción (`/stock/metric`)
 - ✅ Búsqueda de símbolos
-- ✅ WebSocket streaming para actualizaciones en tiempo real
 - ✅ Webhooks para notificaciones de Finnhub
 
 **No implementado (pero fácil de agregar)**:
@@ -297,9 +295,8 @@ marginOfSafety = (dcfFairValue - currentPrice) / dcfFairValue × 100
 9. ✅ Margen de seguridad
 10. ✅ Payback period
 11. ✅ ROI estimado
-12. ✅ WebSocket streaming para precios en tiempo real
-13. ✅ Webhooks de Finnhub
-14. ✅ Enriquecimiento automático de responses
+12. ✅ Webhooks de Finnhub
+13. ✅ Enriquecimiento automático de responses
 
 ### 🟡 LO QUE FALTA (10%)
 
