@@ -70,6 +70,7 @@ public class FinnhubClient {
                 .build());
         
         if (result.isPresent()) {
+            log.debug("Finnhub profile FULL RESPONSE for {}: {}", ticker, result.get());
             log.debug("Finnhub profile for {}: name={}, exchange={}, currency={}", 
                     ticker, 
                     result.get().get("name"),
@@ -97,8 +98,10 @@ public class FinnhubClient {
                 .build());
         
         if (result.isPresent()) {
+            log.debug("Finnhub metrics FULL RESPONSE for {}: {}", ticker, result.get());
             Object metricObj = result.get().get("metric");
             if (metricObj instanceof Map<?, ?> metrics) {
+                log.debug("Finnhub metrics INNER 'metric' object for {}: {}", ticker, metrics);
                 log.debug("Finnhub metrics for {}: fcfPerShareTTM={}, fcfAnnual={}, fcfTTM={}, pfcfShareTTM={}, peTTM={}, beta={}", 
                         ticker,
                         metrics.get("freeCashFlowPerShareTTM"),
@@ -131,6 +134,7 @@ public class FinnhubClient {
                 .build());
         
         if (result.isPresent()) {
+            log.debug("Finnhub quote FULL RESPONSE for {}: {}", ticker, result.get());
             log.debug("Finnhub quote for {}: currentPrice={}, change={}, previousClose={}", 
                     ticker,
                     result.get().get("c"),
