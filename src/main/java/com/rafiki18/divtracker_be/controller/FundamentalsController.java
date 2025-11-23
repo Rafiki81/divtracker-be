@@ -92,6 +92,7 @@ public class FundamentalsController {
                 .dividendGrowthRate5Y(fundamentals.getDividendGrowthRate5Y())
                 .epsGrowth5Y(fundamentals.getEpsGrowth5Y())
                 .revenueGrowth5Y(fundamentals.getRevenueGrowth5Y())
+                .focfCagr5Y(fundamentals.getFocfCagr5Y())
                 .dataQuality(fundamentals.getDataQuality().name())
                 .dataSource(fundamentals.getSource().name())
                 .lastUpdatedAt(fundamentals.getLastUpdatedAt())
@@ -152,6 +153,9 @@ public class FundamentalsController {
 
         @Schema(description = "Revenue growth rate (5Y)", example = "1.91")
         private java.math.BigDecimal revenueGrowth5Y;
+
+        @Schema(description = "Free Operating Cash Flow CAGR (5Y)", example = "12.50")
+        private java.math.BigDecimal focfCagr5Y;
         
         @Schema(description = "Data quality: COMPLETE, PARTIAL, or STALE", example = "COMPLETE")
         private String dataQuality;

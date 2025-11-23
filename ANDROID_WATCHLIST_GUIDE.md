@@ -141,12 +141,14 @@ createdAt: LocalDateTime    // ⚡ Timestamp de creación
 updatedAt: LocalDateTime    // ⚡ Timestamp de última actualización
 ```
 
-#### Datos de Mercado desde Finnhub (4 campos):
+#### Datos de Mercado desde Finnhub (6 campos):
 ```kotlin
 currentPrice: BigDecimal?       // ⚡ Precio actual desde Finnhub quote API
 fcfPerShareAnnual: BigDecimal?  // ⚡ FCF anual por acción (calculado: operatingCashFlow + capEx / shares)
 peAnnual: BigDecimal?           // ⚡ Price-to-Earnings anual desde Finnhub metrics API
 beta: BigDecimal?               // ⚡ Volatilidad vs mercado desde Finnhub metrics API
+focfCagr5Y: BigDecimal?         // ⚡ CAGR del FCF Operativo a 5 años
+dividendYield: BigDecimal?      // ⚡ Rentabilidad por dividendo (Yield)
 ```
 
 **🔄 Actualización:** Cada 6 horas automáticamente, o manual con `POST /api/v1/fundamentals/{ticker}/refresh`
@@ -306,11 +308,17 @@ data class WatchlistItemResponse(
     val actualPfcf: BigDecimal?,
     
     // 🆕 NUEVOS: Ratios de valoración desde cache
-    @SerializedName("peTTM")
-    val peTTM: BigDecimal?,  // Price-to-Earnings TTM
+    @SerializedName("peAnnual")
+    val peAnnual: BigDecimal?,  // Price-to-Earnings Anual
     
     @SerializedName("beta")
     val beta: BigDecimal?,  // Volatilidad vs mercado (1.0 = mismo que mercado)
+
+    @SerializedName("focfCagr5Y")
+    val focfCagr5Y: BigDecimal?,  // CAGR del FCF Operativo a 5 años
+
+    @SerializedName("dividendYield")
+    val dividendYield: BigDecimal?,  // Rentabilidad por dividendo (Yield)
     
     // Análisis de valoración básico
     @SerializedName("fairPriceByPfcf")
@@ -1957,6 +1965,10 @@ object TestData {
         currentPrice = BigDecimal("172.15"),
         freeCashFlowPerShare = BigDecimal("11.45"),
         actualPfcf = BigDecimal("15.03"),
+        peAnnual = BigDecimal("28.5"),
+        beta = BigDecimal("1.2"),
+        focfCagr5Y = BigDecimal("12.5"),
+        dividendYield = BigDecimal("0.55"),
         fairPriceByPfcf = BigDecimal("180.00"),
         discountToFairPrice = BigDecimal("0.12"),
         deviationFromTargetPrice = BigDecimal("-0.05"),

@@ -141,6 +141,12 @@ public class WatchlistMapper {
         if (fcfPerShare != null) {
             response.setFreeCashFlowPerShare(fcfPerShare);
         }
+
+        // Expose additional Finnhub metrics
+        response.setBeta(fundamentals.getBeta());
+        response.setFocfCagr5Y(fundamentals.getFocfCagr5Y());
+        response.setPeAnnual(fundamentals.getPeAnnual());
+        response.setDividendYield(fundamentals.getDividendYield());
         
         // Si falta alguno de los dos datos críticos, no podemos calcular métricas de valoración
         if (currentPrice == null || fcfPerShare == null) {
@@ -184,6 +190,9 @@ public class WatchlistMapper {
             if (growthRate.compareTo(new BigDecimal("0.15")) > 0) {
                 growthRate = new BigDecimal("0.15");
             }
+            
+            // Expose the calculated growth rate to the response if it wasn't set
+            response.setEstimatedFcfGrowthRate(growthRate);
         }
         
         // 2. Determine Discount Rate
@@ -207,10 +216,15 @@ public class WatchlistMapper {
             } else {
                 discountRate = new BigDecimal("0.10"); // Default 10%
             }
+            
+            // Expose the calculated discount rate to the response if it wasn't set
+            response.setDiscountRate(discountRate);
         }
         
-        Integer horizon = response.getInvestmentHorizonYears() != null ? 
-                response.getInvestmentHorizonYears() : 5;
+        Integer horizon = response.getInvestmentHorizonYears();
+        if (horizon == null) {
+            horizon = 5;
+        }
         
         // Calcular P/FCF actual
         if (fcfPerShare.compareTo(BigDecimal.ZERO) > 0) {

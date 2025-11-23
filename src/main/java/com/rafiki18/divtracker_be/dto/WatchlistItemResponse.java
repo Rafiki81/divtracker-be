@@ -47,8 +47,17 @@ public class WatchlistItemResponse {
     @Schema(description = "FCF por acción reportado", example = "11.45")
     private BigDecimal freeCashFlowPerShare;
 
-    // Note: PE Annual and Beta are available via fetchMarketData() but not included in response
-    // to keep the API response focused on valuation metrics. Can be added if needed.
+    @Schema(description = "Beta de la acción (volatilidad)", example = "0.85")
+    private BigDecimal beta;
+
+    @Schema(description = "CAGR del FCF Operativo a 5 años (Finnhub)", example = "12.50")
+    private BigDecimal focfCagr5Y;
+
+    @Schema(description = "PER Anual", example = "25.4")
+    private BigDecimal peAnnual;
+
+    @Schema(description = "Rentabilidad por dividendo (Yield)", example = "3.50")
+    private BigDecimal dividendYield;
 
     @Schema(description = "P/FCF actual calculado", example = "15.03")
     private BigDecimal actualPfcf;
