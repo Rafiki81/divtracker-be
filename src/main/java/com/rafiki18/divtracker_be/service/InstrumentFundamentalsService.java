@@ -168,10 +168,6 @@ public class InstrumentFundamentalsService {
                 // Risk
                 builder.beta(getBigDecimal(m, "beta"));
 
-                // Cash Flow
-                builder.fcfPerShareTTM(getBigDecimal(m, "freeCashFlowPerShareTTM"));
-                builder.fcfPerShareAnnual(getBigDecimal(m, "freeCashFlowPerShareAnnual"));
-
                 // Profitability
                 builder.epsTTM(getBigDecimal(m, "epsTTM"));
                 builder.operatingMargin(getBigDecimal(m, "operatingMarginTTM"));
@@ -183,6 +179,41 @@ public class InstrumentFundamentalsService {
                 builder.dividendYield(getBigDecimal(m, "dividendYieldIndicatedAnnual"));
                 builder.dividendPerShare(getBigDecimal(m, "dividendPerShareAnnual"));
                 builder.payoutRatio(getBigDecimal(m, "payoutRatioAnnual"));
+            });
+
+            // Calculate FCF per share manually (Finnhub doesn't provide these fields directly)
+            // FCF per share = freeCashFlow / shareOutstanding
+            profile.ifPresent(p -> {
+                Long sharesOutstanding = getLong(p, "shareOutstanding");
+                if (sharesOutstanding != null && sharesOutstanding > 0) {
+                    metrics.ifPresent(m -> {
+                        // FCF TTM per share
+                        BigDecimal fcfTTM = getBigDecimal(m, "freeCashFlowTTM");
+                        if (fcfTTM != null) {
+                            BigDecimal fcfPerShareTTM = fcfTTM.divide(
+                                BigDecimal.valueOf(sharesOutstanding), 
+                                4, 
+                                java.math.RoundingMode.HALF_UP
+                            );
+                            builder.fcfPerShareTTM(fcfPerShareTTM);
+                            log.debug("Calculated fcfPerShareTTM for {}: {} / {} = {}", 
+                                ticker, fcfTTM, sharesOutstanding, fcfPerShareTTM);
+                        }
+                        
+                        // FCF Annual per share
+                        BigDecimal fcfAnnual = getBigDecimal(m, "freeCashFlowAnnual");
+                        if (fcfAnnual != null) {
+                            BigDecimal fcfPerShareAnnual = fcfAnnual.divide(
+                                BigDecimal.valueOf(sharesOutstanding), 
+                                4, 
+                                java.math.RoundingMode.HALF_UP
+                            );
+                            builder.fcfPerShareAnnual(fcfPerShareAnnual);
+                            log.debug("Calculated fcfPerShareAnnual for {}: {} / {} = {}", 
+                                ticker, fcfAnnual, sharesOutstanding, fcfPerShareAnnual);
+                        }
+                    });
+                }
             });
 
             InstrumentFundamentals fundamentals = builder.build();

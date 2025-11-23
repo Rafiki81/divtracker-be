@@ -41,19 +41,59 @@ public class FinnhubClient {
                 .flatMap(body -> extractDecimal(body.get("c")));
     }
 
+    /**
+     * Fetch FCF per share by calculating: freeCashFlowTTM / shareOutstanding.
+     * Finnhub doesn't provide freeCashFlowPerShareTTM directly for most tickers,
+     * so we calculate it manually using the total FCF and shares outstanding.
+     * 
+     * @param ticker Stock ticker symbol
+     * @return FCF per share (TTM), or empty if data unavailable
+     */
     public Optional<BigDecimal> fetchFreeCashFlowPerShare(String ticker) {
-        return fetchMap(ticker, "metrics", builder -> builder
+        // Fetch metrics to get freeCashFlowTTM
+        Optional<Map<String, Object>> metricsResponse = fetchMap(ticker, "metrics", builder -> builder
                 .path("/stock/metric")
                 .queryParam("symbol", ticker)
                 .queryParam("metric", "all")
-            .queryParam("token", properties.getApiKey())
-                .build())
-                .flatMap(body -> Optional.ofNullable(body.get("metric")))
-        .filter(Map.class::isInstance)
-        .map(raw -> (Map<?, ?>) raw)
-        // Finnhub solo expone freeCashFlowPerShareTTM (no existe freeCashFlowPerShareAnnual)
-        .flatMap(metric -> extractDecimal(metric.get("freeCashFlowPerShareTTM")))
-                .filter(value -> value.compareTo(BigDecimal.ZERO) > 0);
+                .queryParam("token", properties.getApiKey())
+                .build());
+        
+        // Fetch profile to get shareOutstanding
+        Optional<Map<String, Object>> profileResponse = fetchMap(ticker, "profile", builder -> builder
+                .path("/stock/profile2")
+                .queryParam("symbol", ticker)
+                .queryParam("token", properties.getApiKey())
+                .build());
+        
+        if (metricsResponse.isEmpty() || profileResponse.isEmpty()) {
+            log.debug("Cannot calculate FCF per share for {}: missing metrics or profile data", ticker);
+            return Optional.empty();
+        }
+        
+        // Extract freeCashFlowTTM from metrics
+        Optional<BigDecimal> fcfTTM = Optional.ofNullable(metricsResponse.get().get("metric"))
+                .filter(Map.class::isInstance)
+                .map(raw -> (Map<?, ?>) raw)
+                .flatMap(metric -> extractDecimal(metric.get("freeCashFlowTTM")));
+        
+        // Extract shareOutstanding from profile
+        Optional<BigDecimal> sharesOutstanding = extractDecimal(profileResponse.get().get("shareOutstanding"));
+        
+        // Calculate FCF per share = freeCashFlowTTM / shareOutstanding
+        if (fcfTTM.isPresent() && sharesOutstanding.isPresent() 
+                && sharesOutstanding.get().compareTo(BigDecimal.ZERO) > 0) {
+            
+            BigDecimal fcfPerShare = fcfTTM.get().divide(sharesOutstanding.get(), 4, java.math.RoundingMode.HALF_UP);
+            
+            log.debug("Calculated FCF per share for {}: freeCashFlowTTM={} / shareOutstanding={} = {}", 
+                    ticker, fcfTTM.get(), sharesOutstanding.get(), fcfPerShare);
+            
+            return fcfPerShare.compareTo(BigDecimal.ZERO) > 0 ? Optional.of(fcfPerShare) : Optional.empty();
+        }
+        
+        log.debug("Cannot calculate FCF per share for {}: fcfTTM={}, sharesOutstanding={}", 
+                ticker, fcfTTM.orElse(null), sharesOutstanding.orElse(null));
+        return Optional.empty();
     }
 
     /**
@@ -102,14 +142,14 @@ public class FinnhubClient {
             Object metricObj = result.get().get("metric");
             if (metricObj instanceof Map<?, ?> metrics) {
                 log.info("Finnhub metrics INNER 'metric' object for {}: {}", ticker, metrics);
-                log.debug("Finnhub metrics for {}: fcfPerShareTTM={}, fcfAnnual={}, fcfTTM={}, pfcfShareTTM={}, peTTM={}, beta={}", 
+                log.debug("Finnhub metrics for {}: fcfAnnual={}, fcfTTM={}, pfcfShareTTM={}, peTTM={}, beta={}, shareOutstanding={}", 
                         ticker,
-                        metrics.get("freeCashFlowPerShareTTM"),
                         metrics.get("freeCashFlowAnnual"),
                         metrics.get("freeCashFlowTTM"),
                         metrics.get("pfcfShareTTM"),
                         metrics.get("peTTM"),
-                        metrics.get("beta"));
+                        metrics.get("beta"),
+                        metrics.get("shareOutstanding"));
             } else {
                 log.warn("Metrics response for {} has no 'metric' map", ticker);
             }
