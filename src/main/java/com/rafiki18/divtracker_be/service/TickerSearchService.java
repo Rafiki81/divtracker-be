@@ -1,0 +1,60 @@
+package com.rafiki18.divtracker_be.service;
+
+import java.util.Collections;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.rafiki18.divtracker_be.dto.TickerSearchResult;
+import com.rafiki18.divtracker_be.marketdata.FinnhubClient;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+/**
+ * Service for searching stock tickers and symbols.
+ * Provides flexible search by company name or ticker symbol.
+ */
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class TickerSearchService {
+    
+    private final FinnhubClient finnhubClient;
+    
+    /**
+     * Search for tickers by query (company name or symbol).
+     * Returns a list of matching results from Finnhub.
+     *
+     * @param query Search term (e.g., "Apple", "AAPL", "Microsoft")
+     * @return List of matching ticker results, limited to 20
+     */
+    public List<TickerSearchResult> searchTickers(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            log.debug("Empty search query provided");
+            return Collections.emptyList();
+        }
+        
+        if (!finnhubClient.isEnabled()) {
+            log.warn("Finnhub is not enabled, ticker search unavailable");
+            return Collections.emptyList();
+        }
+        
+        String normalizedQuery = query.trim();
+        log.debug("Searching tickers for query: {}", normalizedQuery);
+        
+        List<TickerSearchResult> results = finnhubClient.searchSymbols(normalizedQuery);
+        log.info("Found {} ticker results for query: {}", results.size(), normalizedQuery);
+        
+        return results;
+    }
+    
+    /**
+     * Check if ticker search is available.
+     *
+     * @return true if Finnhub is enabled
+     */
+    public boolean isAvailable() {
+        return finnhubClient.isEnabled();
+    }
+}

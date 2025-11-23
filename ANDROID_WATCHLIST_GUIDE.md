@@ -33,6 +33,18 @@ La **Watchlist API** permite a los usuarios autenticados gestionar una lista de 
 
 **Autenticación**: Todos los endpoints requieren JWT token en el header `Authorization: Bearer <token>`
 
+### 🆕 Creación Automática con Finnhub
+
+**Nuevo en v1.1**: Puedes crear items solo con el ticker, sin necesidad de especificar `targetPrice` o `targetPfcf`. El backend:
+
+1. 🔍 Obtiene el precio actual de Finnhub
+2. 📊 Obtiene el FCF por acción de Finnhub
+3. 🧮 Calcula el P/FCF actual automáticamente
+4. ✨ Lo establece como `targetPfcf` inicial
+5. 📈 Calcula todas las métricas financieras (DCF, TIR, ROI, etc.)
+
+**Requisito**: Finnhub API debe estar configurada en el backend (ver `FINNHUB_SETUP.md`)
+
 ---
 
 ## Data Models
@@ -55,10 +67,10 @@ data class WatchlistItemRequest(
     val exchange: String? = null,  // Opcional, ej: "NASDAQ"
     
     @SerializedName("targetPrice")
-    val targetPrice: BigDecimal? = null,  // Opcional, precio objetivo
+    val targetPrice: BigDecimal? = null,  // Opcional* - ver nota abajo
     
     @SerializedName("targetPfcf")
-    val targetPfcf: BigDecimal? = null,  // Opcional, P/FCF objetivo
+    val targetPfcf: BigDecimal? = null,  // Opcional* - ver nota abajo
     
     @SerializedName("notifyWhenBelowPrice")
     val notifyWhenBelowPrice: Boolean? = false,
@@ -75,10 +87,11 @@ data class WatchlistItemRequest(
     @SerializedName("discountRate")
     val discountRate: BigDecimal? = null  // Opcional, 0.01-1.0 (ej: 0.10 = 10%)
 ) {
+    // NOTA: targetPrice y targetPfcf son opcionales si Finnhub está habilitado
+    // El backend calculará targetPfcf automáticamente basándose en datos de mercado
+    // Si Finnhub no está disponible, al menos uno es requerido
+    
     init {
-        require(targetPrice != null || targetPfcf != null) {
-            "Debe especificar al menos targetPrice o targetPfcf"
-        }
         ticker.let {
             require(it.isNotBlank() && it.length in 1..12) {
                 "El ticker debe tener entre 1 y 12 caracteres"
@@ -189,7 +202,37 @@ data class WatchlistItemResponse(
 )
 ```
 
-### 3. WatchlistPage
+### 3. TickerSearchResult
+
+**Resultado de búsqueda de ticker**
+
+```kotlin
+package com.yourcompany.divtracker.data.model
+
+import com.google.gson.annotations.SerializedName
+
+data class TickerSearchResult(
+    @SerializedName("symbol")
+    val symbol: String,  // Ej: "AAPL"
+    
+    @SerializedName("description")
+    val description: String,  // Ej: "Apple Inc"
+    
+    @SerializedName("type")
+    val type: String?,  // Ej: "Common Stock"
+    
+    @SerializedName("exchange")
+    val exchange: String?,  // Ej: "NASDAQ"
+    
+    @SerializedName("currency")
+    val currency: String?,  // Ej: "USD"
+    
+    @SerializedName("figi")
+    val figi: String?  // Código FIGI
+)
+```
+
+### 4. WatchlistPage
 
 **Response paginado**
 
@@ -243,6 +286,22 @@ import retrofit2.http.*
 import java.util.UUID
 
 interface WatchlistApiService {
+    
+    /**
+     * Buscar tickers por nombre o símbolo
+     * 
+     * Búsqueda flexible que acepta:
+     * - Nombre de empresa: "Apple", "Microsoft", "Tesla"
+     * - Símbolo: "AAPL", "MSFT", "TSLA"
+     * - Búsqueda parcial: "appl", "micro", "tes"
+     * 
+     * @param query Término de búsqueda
+     * @return Lista de hasta 20 resultados coincidentes
+     */
+    @GET("api/v1/tickers/search")
+    suspend fun searchTickers(
+        @Query("q") query: String
+    ): Response<List<TickerSearchResult>>
     
     /**
      * Listar items del watchlist con paginación y ordenamiento
@@ -342,6 +401,22 @@ import java.util.UUID
 class WatchlistRepository(
     private val apiService: WatchlistApiService
 ) {
+    
+    /**
+     * Buscar tickers por nombre o símbolo
+     */
+    suspend fun searchTickers(query: String): Result<List<TickerSearchResult>> = 
+        withContext(Dispatchers.IO) {
+            try {
+                if (query.isBlank()) {
+                    return@withContext Result.success(emptyList())
+                }
+                val response = apiService.searchTickers(query)
+                handleResponse(response)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
     
     /**
      * Listar items con paginación
@@ -472,6 +547,41 @@ class WatchlistViewModel(
     // State para operaciones de creación/actualización/eliminación
     private val _operationState = MutableStateFlow<WatchlistOperationState>(WatchlistOperationState.Idle)
     val operationState: StateFlow<WatchlistOperationState> = _operationState.asStateFlow()
+    
+    // State para búsqueda de tickers
+    private val _searchState = MutableStateFlow<TickerSearchState>(TickerSearchState.Idle)
+    val searchState: StateFlow<TickerSearchState> = _searchState.asStateFlow()
+    
+    /**
+     * Buscar tickers por nombre o símbolo
+     */
+    fun searchTickers(query: String) {
+        viewModelScope.launch {
+            if (query.isBlank()) {
+                _searchState.value = TickerSearchState.Idle
+                return@launch
+            }
+            
+            _searchState.value = TickerSearchState.Loading
+            
+            repository.searchTickers(query)
+                .onSuccess { results ->
+                    _searchState.value = TickerSearchState.Success(results)
+                }
+                .onFailure { error ->
+                    _searchState.value = TickerSearchState.Error(
+                        error.message ?: "Error al buscar tickers"
+                    )
+                }
+        }
+    }
+    
+    /**
+     * Limpiar resultados de búsqueda
+     */
+    fun clearSearch() {
+        _searchState.value = TickerSearchState.Idle
+    }
     
     /**
      * Cargar lista de items con paginación
@@ -636,6 +746,16 @@ sealed class WatchlistOperationState {
     data class Updated(val item: WatchlistItemResponse) : WatchlistOperationState()
     object Deleted : WatchlistOperationState()
     data class Error(val message: String) : WatchlistOperationState()
+}
+
+/**
+ * Estados para búsqueda de tickers
+ */
+sealed class TickerSearchState {
+    object Idle : TickerSearchState()
+    object Loading : TickerSearchState()
+    data class Success(val results: List<TickerSearchResult>) : TickerSearchState()
+    data class Error(val message: String) : TickerSearchState()
 }
 ```
 
@@ -879,7 +999,217 @@ class WatchlistDetailFragment : Fragment(R.layout.fragment_watchlist_detail) {
 }
 ```
 
-### 3. Activity/Fragment - Crear/Editar Item
+### 3A. Crear Item - MODO SIMPLE con Búsqueda (Recomendado)
+
+**Nuevo**: Crear item con búsqueda flexible de tickers y carga automática de datos
+
+```kotlin
+package com.yourcompany.divtracker.ui.fragment
+
+import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.View
+import android.widget.Toast
+import androidx.core.view.isVisible
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.yourcompany.divtracker.R
+import com.yourcompany.divtracker.data.model.TickerSearchResult
+import com.yourcompany.divtracker.data.model.WatchlistItemRequest
+import com.yourcompany.divtracker.databinding.FragmentQuickAddBinding
+import com.yourcompany.divtracker.ui.adapter.TickerSearchAdapter
+import com.yourcompany.divtracker.ui.viewmodel.TickerSearchState
+import com.yourcompany.divtracker.ui.viewmodel.WatchlistOperationState
+import com.yourcompany.divtracker.ui.viewmodel.WatchlistViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
+
+class QuickAddWatchlistFragment : Fragment(R.layout.fragment_quick_add) {
+    
+    private var _binding: FragmentQuickAddBinding? = null
+    private val binding get() = _binding!!
+    
+    private val viewModel: WatchlistViewModel by viewModels()
+    private lateinit var searchAdapter: TickerSearchAdapter
+    private var searchJob: Job? = null
+    
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        _binding = FragmentQuickAddBinding.bind(view)
+        
+        setupSearchRecyclerView()
+        setupSearchInput()
+        observeSearchState()
+        observeOperationState()
+    }
+    
+    private fun setupSearchRecyclerView() {
+        searchAdapter = TickerSearchAdapter { tickerResult ->
+            onTickerSelected(tickerResult)
+        }
+        
+        binding.recyclerSearch.apply {
+            layoutManager = LinearLayoutManager(requireContext())
+            adapter = searchAdapter
+        }
+    }
+    
+    private fun setupSearchInput() {
+        binding.etTicker.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            
+            override fun afterTextChanged(s: Editable?) {
+                val query = s?.toString()?.trim() ?: ""
+                
+                // Debounce: esperar 300ms después de que el usuario deje de escribir
+                searchJob?.cancel()
+                
+                if (query.length >= 2) {
+                    searchJob = lifecycleScope.launch {
+                        delay(300) // Debounce time
+                        viewModel.searchTickers(query)
+                    }
+                } else {
+                    viewModel.clearSearch()
+                }
+            }
+        })
+    }
+    
+    private fun observeSearchState() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.searchState.collectLatest { state ->
+                when (state) {
+                    is TickerSearchState.Idle -> {
+                        binding.recyclerSearch.isVisible = false
+                        binding.searchProgress.isVisible = false
+                        binding.tvSearchEmpty.isVisible = false
+                    }
+                    
+                    is TickerSearchState.Loading -> {
+                        binding.searchProgress.isVisible = true
+                        binding.recyclerSearch.isVisible = false
+                        binding.tvSearchEmpty.isVisible = false
+                    }
+                    
+                    is TickerSearchState.Success -> {
+                        binding.searchProgress.isVisible = false
+                        
+                        if (state.results.isEmpty()) {
+                            binding.recyclerSearch.isVisible = false
+                            binding.tvSearchEmpty.isVisible = true
+                            binding.tvSearchEmpty.text = "No se encontraron resultados"
+                        } else {
+                            binding.recyclerSearch.isVisible = true
+                            binding.tvSearchEmpty.isVisible = false
+                            searchAdapter.submitList(state.results)
+                        }
+                    }
+                    
+                    is TickerSearchState.Error -> {
+                        binding.searchProgress.isVisible = false
+                        binding.recyclerSearch.isVisible = false
+                        binding.tvSearchEmpty.isVisible = true
+                        binding.tvSearchEmpty.text = "Error: ${state.message}"
+                    }
+                }
+            }
+        }
+    }
+    
+    private fun onTickerSelected(tickerResult: TickerSearchResult) {
+        // Autocompletar el campo con el ticker seleccionado
+        binding.etTicker.setText(tickerResult.symbol)
+        binding.etTicker.setSelection(tickerResult.symbol.length)
+        
+        // Mostrar info del ticker seleccionado
+        binding.tvTickerInfo.isVisible = true
+        binding.tvTickerInfo.text = "${tickerResult.description}\n${tickerResult.exchange} • ${tickerResult.type}"
+        
+        // Ocultar resultados de búsqueda
+        viewModel.clearSearch()
+        
+        // Mostrar botón de añadir
+        binding.btnQuickAdd.isEnabled = true
+    }
+    
+    private fun quickAddItem() {
+        val ticker = binding.etTicker.text.toString().trim()
+        
+        if (ticker.isBlank()) {
+            Toast.makeText(requireContext(), "Selecciona un ticker", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        // Crear item SOLO con ticker
+        // El backend cargará precio, FCF y calculará métricas automáticamente
+        val request = WatchlistItemRequest(
+            ticker = ticker
+            // Sin targetPrice ni targetPfcf
+            // Finnhub los calculará automáticamente
+        )
+        
+        viewModel.createItem(request)
+    }
+    
+    private fun observeOperationState() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.operationState.collectLatest { state ->
+                when (state) {
+                    is WatchlistOperationState.Loading -> {
+                        binding.progressBar.visibility = View.VISIBLE
+                        binding.btnQuickAdd.isEnabled = false
+                    }
+                    
+                    is WatchlistOperationState.Created -> {
+                        binding.progressBar.visibility = View.GONE
+                        val item = state.item
+                        Toast.makeText(
+                            requireContext(),
+                            "✅ ${item.ticker} añadido\n" +
+                            "Precio: $${item.currentPrice}\n" +
+                            "P/FCF: ${item.actualPfcf}\n" +
+                            "Estado: ${if (item.undervalued == true) "Infravalorada" else "Sobrevalorada"}",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        findNavController().popBackStack()
+                    }
+                    
+                    is WatchlistOperationState.Error -> {
+                        binding.progressBar.visibility = View.GONE
+                        binding.btnQuickAdd.isEnabled = true
+                        
+                        // Manejar error de datos no disponibles
+                        val errorMsg = if (state.message.contains("datos de mercado")) {
+                            "No se encontraron datos para ${binding.etTicker.text}.\n" +
+                            "Intenta con otro ticker o añade valores manualmente."
+                        } else {
+                            state.message
+                        }
+                        
+                        Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_LONG).show()
+                    }
+                    
+                    else -> {}
+                }
+            }
+        }
+    }
+    
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
+    }
+}
+```
+
+### 3B. Activity/Fragment - Crear/Editar Item COMPLETO (Modo Manual)
 
 ```kotlin
 package com.yourcompany.divtracker.ui.fragment
@@ -1139,7 +1469,33 @@ data class ErrorResponse(
 ```kotlin
 object TestData {
     
-    // Request válido - mínimo
+    // Ejemplos de búsqueda de tickers
+    val searchQueryExamples = listOf(
+        "Apple",      // Búsqueda por nombre
+        "AAPL",       // Búsqueda por símbolo
+        "micro",      // Búsqueda parcial
+        "tesla",      // Búsqueda insensible a mayúsculas
+        "MSFT"        // Símbolo exacto
+    )
+    
+    // Resultado de búsqueda de ejemplo
+    val sampleSearchResult = TickerSearchResult(
+        symbol = "AAPL",
+        description = "Apple Inc",
+        type = "Common Stock",
+        exchange = "NASDAQ",
+        currency = "USD",
+        figi = "BBG000B9XRY4"
+    )
+    
+    // Request válido - SOLO TICKER (requiere Finnhub habilitado)
+    val validRequestAutomatic = WatchlistItemRequest(
+        ticker = "AAPL"
+        // Sin targetPrice ni targetPfcf
+        // Backend los calculará automáticamente
+    )
+    
+    // Request válido - mínimo con valores manuales
     val validRequestMinimal = WatchlistItemRequest(
         ticker = "AAPL",
         targetPrice = BigDecimal("150.00")
@@ -1402,11 +1758,14 @@ object RetrofitClient {
   - [ ] Layouts XML
 
 - [ ] **Features**
+  - [ ] ⚡ Quick Add: Crear item solo con ticker (modo automático)
+  - [ ] 📝 Formulario completo: Crear item con valores manuales
   - [ ] Pull to refresh
   - [ ] Scroll infinito (paginación)
   - [ ] Búsqueda/filtrado
   - [ ] Ordenamiento (por fecha, ticker, precio, etc.)
   - [ ] Indicadores visuales (infravalorada/sobrevalorada)
+  - [ ] Badge/chip mostrando "Auto" vs "Manual" según cómo se creó
 
 - [ ] **Testing**
   - [ ] Unit tests para ViewModel
@@ -1457,6 +1816,179 @@ El backend calcula automáticamente:
 
 ---
 
+## 💡 Recomendaciones de UX
+
+### Pantalla de Creación Simple vs Completa
+
+**Opción 1: Dos botones en la lista**
+```
+[+ Añadir Rápido]  [⚙️ Añadir Avanzado]
+```
+
+**Opción 2: Modal con opción**
+```
+Click en [+] → Diálogo:
+"¿Cómo quieres añadir?"
+[ Rápido (solo ticker) ]
+[ Avanzado (configuración completa) ]
+```
+
+**Opción 3: Formulario progresivo**
+```
+Paso 1: Ticker (obligatorio)
+[Continuar] → Carga datos automáticamente
+Paso 2: ¿Quieres personalizar? [Sí] [No, usar automático]
+```
+
+### Adapter para Búsqueda de Tickers
+
+```kotlin
+package com.yourcompany.divtracker.ui.adapter
+
+import android.view.LayoutInflater
+import android.view.ViewGroup
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.yourcompany.divtracker.data.model.TickerSearchResult
+import com.yourcompany.divtracker.databinding.ItemTickerSearchBinding
+
+class TickerSearchAdapter(
+    private val onTickerClick: (TickerSearchResult) -> Unit
+) : ListAdapter<TickerSearchResult, TickerSearchAdapter.ViewHolder>(DiffCallback) {
+    
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val binding = ItemTickerSearchBinding.inflate(
+            LayoutInflater.from(parent.context), 
+            parent, 
+            false
+        )
+        return ViewHolder(binding, onTickerClick)
+    }
+    
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        holder.bind(getItem(position))
+    }
+    
+    class ViewHolder(
+        private val binding: ItemTickerSearchBinding,
+        private val onTickerClick: (TickerSearchResult) -> Unit
+    ) : RecyclerView.ViewHolder(binding.root) {
+        
+        fun bind(result: TickerSearchResult) {
+            binding.tvSymbol.text = result.symbol
+            binding.tvDescription.text = result.description
+            binding.tvExchange.text = buildString {
+                append(result.exchange ?: "")
+                if (result.type != null) {
+                    if (isNotEmpty()) append(" • ")
+                    append(result.type)
+                }
+            }
+            
+            binding.root.setOnClickListener {
+                onTickerClick(result)
+            }
+        }
+    }
+    
+    private object DiffCallback : DiffUtil.ItemCallback<TickerSearchResult>() {
+        override fun areItemsTheSame(
+            oldItem: TickerSearchResult, 
+            newItem: TickerSearchResult
+        ): Boolean = oldItem.symbol == newItem.symbol
+        
+        override fun areContentsTheSame(
+            oldItem: TickerSearchResult, 
+            newItem: TickerSearchResult
+        ): Boolean = oldItem == newItem
+    }
+}
+```
+
+### Layout XML para Item de Búsqueda
+
+**item_ticker_search.xml**:
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView 
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    app:cardElevation="2dp"
+    app:cardCornerRadius="8dp">
+    
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+        
+        <TextView
+            android:id="@+id/tvSymbol"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="?attr/colorPrimary"
+            tools:text="AAPL" />
+        
+        <TextView
+            android:id="@+id/tvDescription"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textSize="14sp"
+            tools:text="Apple Inc" />
+        
+        <TextView
+            android:id="@+id/tvExchange"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textSize="12sp"
+            android:textColor="?android:attr/textColorSecondary"
+            tools:text="NASDAQ • Common Stock" />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>
+```
+
+### Indicadores Visuales
+
+```kotlin
+// Badge en cada item de la lista
+if (item.targetPfcf != null && item.targetPrice == null) {
+    Badge("AUTO", color = Color.Blue)
+} else {
+    Badge("MANUAL", color = Color.Gray)
+}
+```
+
+### Feedback al Usuario
+
+```kotlin
+// Mostrar shimmer/loading mientras se obtienen datos
+if (state is Loading && isAutoMode) {
+    Text("Obteniendo datos de mercado...")
+    LinearProgressIndicator()
+}
+
+// Mostrar resumen al crear
+if (state is Created) {
+    SuccessDialog(
+        ticker = item.ticker,
+        price = item.currentPrice,
+        pfcf = item.actualPfcf,
+        status = if (item.undervalued) "Infravalorada" else "Sobrevalorada"
+    )
+}
+```
+
+---
+
 ## 🎯 Próximos Pasos
 
 1. **Implementar data models** en Android
@@ -1464,13 +1996,101 @@ El backend calcula automáticamente:
 3. **Crear Repository** con manejo de errores
 4. **Implementar ViewModel** con StateFlow
 5. **Diseñar UI** para lista, detalle y formularios
-6. **Añadir paginación** y pull-to-refresh
-7. **Implementar búsqueda** y ordenamiento
-8. **Añadir tests** unitarios y de integración
+6. **🆕 Implementar Quick Add** (solo ticker) como opción principal
+7. **🆕 Implementar formulario avanzado** como opción secundaria
+8. **Añadir paginación** y pull-to-refresh
+9. **Implementar búsqueda** y ordenamiento
+10. **Añadir tests** unitarios y de integración
+
+---
+
+## 🔀 Modos de Creación de Items
+
+### Modo 1: Automático (Solo Ticker) ⚡ RECOMENDADO
+
+**Ventajas:**
+- ✅ Más rápido para el usuario
+- ✅ Datos reales del mercado
+- ✅ Cálculos automáticos de métricas
+- ✅ Menos campos en el formulario
+
+**Requisito:** Finnhub API configurada en backend
+
+```kotlin
+val request = WatchlistItemRequest(
+    ticker = "AAPL",
+    notes = "Apple Inc."  // Opcional
+)
+```
+
+**Response esperado:**
+```json
+{
+  "id": "...",
+  "ticker": "AAPL",
+  "targetPfcf": 25.5,  // ← Calculado automáticamente
+  "currentPrice": 172.15,  // ← Desde Finnhub
+  "freeCashFlowPerShare": 6.75,  // ← Desde Finnhub
+  "actualPfcf": 25.5,
+  "dcfFairValue": 195.50,
+  "undervalued": false,
+  ...
+}
+```
+
+### Modo 2: Manual (Con Valores Específicos)
+
+**Ventajas:**
+- ✅ Control total sobre los parámetros
+- ✅ Funciona sin Finnhub
+- ✅ Análisis personalizado
+
+```kotlin
+val request = WatchlistItemRequest(
+    ticker = "MSFT",
+    targetPrice = BigDecimal("350.00"),
+    targetPfcf = BigDecimal("20.0"),
+    estimatedFcfGrowthRate = BigDecimal("0.08"),
+    investmentHorizonYears = 5,
+    discountRate = BigDecimal("0.10"),
+    notes = "Microsoft - Strong fundamentals"
+)
+```
+
+### Modo 3: Híbrido (Ticker + Algunos Valores)
+
+```kotlin
+val request = WatchlistItemRequest(
+    ticker = "GOOGL",
+    targetPrice = BigDecimal("140.00"),  // Manual
+    estimatedFcfGrowthRate = BigDecimal("0.10"),  // Manual
+    investmentHorizonYears = 5  // Manual
+    // El resto se calcula automáticamente
+)
+```
 
 ---
 
 ## 🆘 Troubleshooting
+
+### Error: "No se pudieron obtener datos de mercado para [TICKER]"
+
+**Causa**: Finnhub no tiene datos para ese ticker o la API key no está configurada.
+
+**Solución**:
+1. Verificar que el ticker es correcto (usa símbolos de Yahoo Finance / Finnhub)
+2. Probar con otro ticker popular (AAPL, MSFT, GOOGL)
+3. Usar modo manual: especificar `targetPrice` o `targetPfcf` manualmente
+
+**Ejemplo de manejo en UI:**
+```kotlin
+if (error.message.contains("datos de mercado")) {
+    // Mostrar diálogo para ingresar valores manualmente
+    showManualInputDialog(ticker)
+} else {
+    Toast.makeText(context, error.message, Toast.LENGTH_LONG).show()
+}
+```
 
 ### Error: "No autenticado"
 
