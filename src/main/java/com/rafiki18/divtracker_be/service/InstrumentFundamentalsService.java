@@ -190,9 +190,17 @@ public class InstrumentFundamentalsService {
             // Determine data quality
             if (fundamentals.hasMinimumData()) {
                 fundamentals.setDataQuality(DataQuality.COMPLETE);
+                log.info("Complete fundamentals for {}: currentPrice={}, fcfPerShare={}", 
+                        ticker, 
+                        fundamentals.getCurrentPrice(),
+                        fundamentals.getBestFcfPerShare());
             } else {
                 fundamentals.setDataQuality(DataQuality.PARTIAL);
-                log.warn("Fundamentals for {} are incomplete", ticker);
+                log.warn("Fundamentals for {} are incomplete - Missing required fields: currentPrice={}, fcfPerShareTTM={}, fcfPerShareAnnual={}", 
+                        ticker,
+                        fundamentals.getCurrentPrice(),
+                        fundamentals.getFcfPerShareTTM(),
+                        fundamentals.getFcfPerShareAnnual());
             }
 
             // Save to cache

@@ -86,6 +86,10 @@ public class WatchlistService {
                     actualPfcf, calculatedTargetPrice, normalizedTicker);
             } else {
                 // Permitir crear sin targets - el usuario puede agregarlos después
+                // Agregar nota por defecto para cumplir con constraint
+                if (request.getNotes() == null || request.getNotes().trim().isEmpty()) {
+                    request.setNotes("Pending market data analysis");
+                }
                 log.info("Creating watchlist item for {} without target values (market data unavailable)", normalizedTicker);
             }
         }

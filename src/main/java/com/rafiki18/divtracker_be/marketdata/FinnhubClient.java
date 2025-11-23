@@ -64,11 +64,23 @@ public class FinnhubClient {
      * @return Map containing profile data, or empty if not found
      */
     public Optional<Map<String, Object>> fetchCompanyProfile(String ticker) {
-        return fetchMap(ticker, "profile", builder -> builder
+        Optional<Map<String, Object>> result = fetchMap(ticker, "profile", builder -> builder
                 .path("/stock/profile2")
                 .queryParam("symbol", ticker)
                 .queryParam("token", properties.getApiKey())
                 .build());
+        
+        if (result.isPresent()) {
+            log.debug("Finnhub profile for {}: name={}, exchange={}, currency={}", 
+                    ticker, 
+                    result.get().get("name"),
+                    result.get().get("exchange"),
+                    result.get().get("currency"));
+        } else {
+            log.warn("No profile data returned from Finnhub for {}", ticker);
+        }
+        
+        return result;
     }
 
     /**
@@ -78,12 +90,30 @@ public class FinnhubClient {
      * @return Map containing all metrics, or empty if not found
      */
     public Optional<Map<String, Object>> fetchAllMetrics(String ticker) {
-        return fetchMap(ticker, "metrics", builder -> builder
+        Optional<Map<String, Object>> result = fetchMap(ticker, "metrics", builder -> builder
                 .path("/stock/metric")
                 .queryParam("symbol", ticker)
                 .queryParam("metric", "all")
                 .queryParam("token", properties.getApiKey())
                 .build());
+        
+        if (result.isPresent()) {
+            Object metricObj = result.get().get("metric");
+            if (metricObj instanceof Map<?, ?> metrics) {
+                log.debug("Finnhub metrics for {}: fcfTTM={}, fcfAnnual={}, peTTM={}, beta={}", 
+                        ticker,
+                        metrics.get("freeCashFlowPerShareTTM"),
+                        metrics.get("freeCashFlowPerShareAnnual"),
+                        metrics.get("peTTM"),
+                        metrics.get("beta"));
+            } else {
+                log.warn("Metrics response for {} has no 'metric' map", ticker);
+            }
+        } else {
+            log.warn("No metrics data returned from Finnhub for {}", ticker);
+        }
+        
+        return result;
     }
 
     /**
@@ -93,11 +123,23 @@ public class FinnhubClient {
      * @return Map containing quote data, or empty if not found
      */
     public Optional<Map<String, Object>> fetchQuote(String ticker) {
-        return fetchMap(ticker, "quote", builder -> builder
+        Optional<Map<String, Object>> result = fetchMap(ticker, "quote", builder -> builder
                 .path("/quote")
                 .queryParam("symbol", ticker)
                 .queryParam("token", properties.getApiKey())
                 .build());
+        
+        if (result.isPresent()) {
+            log.debug("Finnhub quote for {}: currentPrice={}, change={}, previousClose={}", 
+                    ticker,
+                    result.get().get("c"),
+                    result.get().get("d"),
+                    result.get().get("pc"));
+        } else {
+            log.warn("No quote data returned from Finnhub for {}", ticker);
+        }
+        
+        return result;
     }
 
     /**

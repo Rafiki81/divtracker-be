@@ -143,6 +143,17 @@ jobs:
           exit 1
         fi
     
+    - name: 📋 Mostrar logs si falla
+      if: failure()
+      run: |
+        echo "### 📋 Últimos logs de la aplicación:" >> $GITHUB_STEP_SUMMARY
+        aws elasticbeanstalk describe-events \
+          --application-name divtracker-prod \
+          --environment-name divtracker-prod \
+          --max-records 20 \
+          --query 'Events[?Severity==`ERROR` || Severity==`WARN`].[EventDate,Severity,Message]' \
+          --output table >> $GITHUB_STEP_SUMMARY || echo "No se pudieron obtener logs"
+    
     - name: 📊 Resumen
       run: |
         echo "### 🚀 Deployment Exitoso" >> $GITHUB_STEP_SUMMARY
