@@ -74,4 +74,18 @@ class WatchlistMapperTest {
         assertThat(response.getDcfFairValue()).isEqualTo(dcfValue);
         assertThat(response.getUndervalued()).isFalse();
     }
+
+    @Test
+    void testEnrichWithMarketData_MapsNewFields() {
+        // Arrange
+        fundamentals.setPayoutRatioFcf(new BigDecimal("0.45"));
+        fundamentals.setChowderRuleValue(new BigDecimal("12.5"));
+        
+        // Act
+        mapper.enrichWithMarketData(response, fundamentals);
+
+        // Assert
+        assertThat(response.getPayoutRatioFcf()).isEqualTo(new BigDecimal("0.45"));
+        assertThat(response.getChowderRuleValue()).isEqualTo(new BigDecimal("12.5"));
+    }
 }

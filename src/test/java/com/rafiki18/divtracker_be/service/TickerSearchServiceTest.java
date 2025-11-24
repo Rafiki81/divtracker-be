@@ -53,12 +53,12 @@ class TickerSearchServiceTest {
     }
     
     @Test
-    @DisplayName("searchTickers() - Debe retornar resultados de lookupSymbol cuando encuentra matches exactos")
-    void testSearchTickers_SuccessWithLookup() {
+    @DisplayName("searchTickers() - Debe usar searchSymbols directamente")
+    void testSearchTickers_Success() {
         // Arrange
         String query = "AAPL";
         when(finnhubClient.isEnabled()).thenReturn(true);
-        when(finnhubClient.lookupSymbol(query)).thenReturn(mockResults);
+        when(finnhubClient.searchSymbols(query)).thenReturn(mockResults);
         
         // Act
         List<TickerSearchResult> results = service.searchTickers(query);
@@ -71,30 +71,8 @@ class TickerSearchServiceTest {
         assertThat(results.get(1).getSymbol()).isEqualTo("AAPL.SW");
         
         verify(finnhubClient).isEnabled();
-        verify(finnhubClient).lookupSymbol(query);
-        verify(finnhubClient, org.mockito.Mockito.never()).searchSymbols(query);
-    }
-    
-    @Test
-    @DisplayName("searchTickers() - Debe usar searchSymbols como fallback cuando lookupSymbol no encuentra nada")
-    void testSearchTickers_FallbackToSearch() {
-        // Arrange
-        String query = "apple";
-        when(finnhubClient.isEnabled()).thenReturn(true);
-        when(finnhubClient.lookupSymbol(query)).thenReturn(Collections.emptyList());
-        when(finnhubClient.searchSymbols(query)).thenReturn(mockResults);
-        
-        // Act
-        List<TickerSearchResult> results = service.searchTickers(query);
-        
-        // Assert
-        assertThat(results).isNotNull();
-        assertThat(results).hasSize(2);
-        assertThat(results.get(0).getSymbol()).isEqualTo("AAPL");
-        
-        verify(finnhubClient).isEnabled();
-        verify(finnhubClient).lookupSymbol(query);
         verify(finnhubClient).searchSymbols(query);
+        verify(finnhubClient, org.mockito.Mockito.never()).lookupSymbol(query);
     }
     
     @Test
@@ -143,23 +121,22 @@ class TickerSearchServiceTest {
         String query = "  AAPL  ";
         String trimmedQuery = "AAPL";
         when(finnhubClient.isEnabled()).thenReturn(true);
-        when(finnhubClient.lookupSymbol(trimmedQuery)).thenReturn(mockResults);
+        when(finnhubClient.searchSymbols(trimmedQuery)).thenReturn(mockResults);
         
         // Act
         List<TickerSearchResult> results = service.searchTickers(query);
         
         // Assert
         assertThat(results).hasSize(2);
-        verify(finnhubClient).lookupSymbol(trimmedQuery);
+        verify(finnhubClient).searchSymbols(trimmedQuery);
     }
     
     @Test
-    @DisplayName("searchTickers() - Debe manejar respuesta vacía de Finnhub en ambos métodos")
+    @DisplayName("searchTickers() - Debe manejar respuesta vacía de Finnhub")
     void testSearchTickers_EmptyResults() {
         // Arrange
         String query = "NONEXISTENT";
         when(finnhubClient.isEnabled()).thenReturn(true);
-        when(finnhubClient.lookupSymbol(query)).thenReturn(Collections.emptyList());
         when(finnhubClient.searchSymbols(query)).thenReturn(Collections.emptyList());
         
         // Act
@@ -167,34 +144,16 @@ class TickerSearchServiceTest {
         
         // Assert
         assertThat(results).isEmpty();
-        verify(finnhubClient).lookupSymbol(query);
         verify(finnhubClient).searchSymbols(query);
+        verify(finnhubClient, org.mockito.Mockito.never()).lookupSymbol(query);
     }
     
     @Test
-    @DisplayName("searchTickers() - Debe buscar por símbolo usando lookupSymbol primero")
+    @DisplayName("searchTickers() - Debe buscar por símbolo usando searchSymbols")
     void testSearchTickers_BySymbol() {
         // Arrange
         String query = "AAPL";
         when(finnhubClient.isEnabled()).thenReturn(true);
-        when(finnhubClient.lookupSymbol(query)).thenReturn(mockResults);
-        
-        // Act
-        List<TickerSearchResult> results = service.searchTickers(query);
-        
-        // Assert
-        assertThat(results).hasSize(2);
-        verify(finnhubClient).lookupSymbol(query);
-        verify(finnhubClient, org.mockito.Mockito.never()).searchSymbols(query);
-    }
-    
-    @Test
-    @DisplayName("searchTickers() - Debe buscar por nombre usando fuzzy search como fallback")
-    void testSearchTickers_PartialName() {
-        // Arrange
-        String query = "molson coors";
-        when(finnhubClient.isEnabled()).thenReturn(true);
-        when(finnhubClient.lookupSymbol(query)).thenReturn(Collections.emptyList());
         when(finnhubClient.searchSymbols(query)).thenReturn(mockResults);
         
         // Act
@@ -202,8 +161,25 @@ class TickerSearchServiceTest {
         
         // Assert
         assertThat(results).hasSize(2);
-        verify(finnhubClient).lookupSymbol(query);
         verify(finnhubClient).searchSymbols(query);
+        verify(finnhubClient, org.mockito.Mockito.never()).lookupSymbol(query);
+    }
+    
+    @Test
+    @DisplayName("searchTickers() - Debe buscar por nombre usando searchSymbols")
+    void testSearchTickers_PartialName() {
+        // Arrange
+        String query = "molson coors";
+        when(finnhubClient.isEnabled()).thenReturn(true);
+        when(finnhubClient.searchSymbols(query)).thenReturn(mockResults);
+        
+        // Act
+        List<TickerSearchResult> results = service.searchTickers(query);
+        
+        // Assert
+        assertThat(results).hasSize(2);
+        verify(finnhubClient).searchSymbols(query);
+        verify(finnhubClient, org.mockito.Mockito.never()).lookupSymbol(query);
     }
     
     @Test
@@ -252,7 +228,6 @@ class TickerSearchServiceTest {
         );
         
         when(finnhubClient.isEnabled()).thenReturn(true);
-        when(finnhubClient.lookupSymbol("apple")).thenReturn(Collections.emptyList());
         when(finnhubClient.searchSymbols("apple")).thenReturn(diverseResults);
         
         // Act
@@ -262,6 +237,8 @@ class TickerSearchServiceTest {
         assertThat(results).hasSize(2);
         assertThat(results).extracting(TickerSearchResult::getType)
                 .containsExactly("Common Stock", "Option");
+        verify(finnhubClient).searchSymbols("apple");
+        verify(finnhubClient, org.mockito.Mockito.never()).lookupSymbol("apple");
     }
     
     @Test
@@ -278,7 +255,6 @@ class TickerSearchServiceTest {
                 .build();
         
         when(finnhubClient.isEnabled()).thenReturn(true);
-        when(finnhubClient.lookupSymbol("microsoft")).thenReturn(Collections.emptyList());
         when(finnhubClient.searchSymbols("microsoft")).thenReturn(List.of(completeResult));
         
         // Act
@@ -293,5 +269,7 @@ class TickerSearchServiceTest {
         assertThat(result.getExchange()).isEqualTo("NASDAQ");
         assertThat(result.getCurrency()).isEqualTo("USD");
         assertThat(result.getFigi()).isEqualTo("BBG000BPH459");
+        verify(finnhubClient).searchSymbols("microsoft");
+        verify(finnhubClient, org.mockito.Mockito.never()).lookupSymbol("microsoft");
     }
 }

@@ -354,16 +354,19 @@ public class FinnhubClient {
 
     /**
      * Map Finnhub search API response to TickerSearchResult.
-     * Search API returns different field names than symbol lookup.
+     * Search API returns limited fields: description, displaySymbol, symbol, type.
+     * Other fields like exchange, currency, figi are not returned by this endpoint.
      */
     private TickerSearchResult mapSearchResultToTickerSearchResult(Map<?, ?> data) {
         return TickerSearchResult.builder()
                 .symbol(getString(data, "symbol"))
                 .description(getString(data, "description"))
                 .type(getString(data, "type"))
-                .exchange(getString(data, "primary")) // Search API uses "primary" for exchange
-                .currency(getString(data, "currency"))
-                .figi(getString(data, "figi"))
+                // The following fields are not returned by /search endpoint according to Swagger
+                // keeping them null is correct as they will be fetched later via profile endpoint
+                .exchange(null) 
+                .currency(null)
+                .figi(null)
                 .build();
     }
 

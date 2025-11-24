@@ -147,6 +147,8 @@ public class WatchlistMapper {
         response.setFocfCagr5Y(fundamentals.getFocfCagr5Y());
         response.setPeAnnual(fundamentals.getPeAnnual());
         response.setDividendYield(fundamentals.getDividendYield());
+        response.setPayoutRatioFcf(fundamentals.getPayoutRatioFcf());
+        response.setChowderRuleValue(fundamentals.getChowderRuleValue());
         
         // Si falta alguno de los dos datos críticos, no podemos calcular métricas de valoración
         if (currentPrice == null || fcfPerShare == null) {

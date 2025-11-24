@@ -153,8 +153,17 @@ public class InstrumentFundamentalsService {
                 builder.currentPrice(getBigDecimal(q, "c"));
             });
 
+            // Variables for calculation
+            BigDecimal dividendPerShare = null;
+            BigDecimal dividendYield = null;
+            BigDecimal dividendGrowth5Y = null;
+            BigDecimal fcfPerShare = null;
+            BigDecimal fcfAnnual = null;
+
             // Metrics data - only essential ratios
-            metrics.ifPresent(m -> {
+            if (metrics.isPresent()) {
+                Map<?, ?> m = metrics.get();
+                
                 // Valuation
                 builder.peAnnual(getBigDecimal(m, "peAnnual"));
                 
@@ -165,52 +174,70 @@ public class InstrumentFundamentalsService {
                 builder.debtToEquityRatio(getBigDecimal(m, "totalDebt/totalEquityQuarterly"));
                 
                 // Dividends
-                builder.dividendPerShareAnnual(getBigDecimal(m, "dividendPerShareAnnual"));
-                builder.dividendYield(getBigDecimal(m, "currentDividendYieldTTM"));
-                builder.dividendGrowthRate5Y(getBigDecimal(m, "dividendGrowthRate5Y"));
+                dividendPerShare = getBigDecimal(m, "dividendPerShareAnnual");
+                dividendYield = getBigDecimal(m, "currentDividendYieldTTM");
+                dividendGrowth5Y = getBigDecimal(m, "dividendGrowthRate5Y");
+
+                builder.dividendPerShareAnnual(dividendPerShare);
+                builder.dividendYield(dividendYield);
+                builder.dividendGrowthRate5Y(dividendGrowth5Y);
 
                 // Growth
                 builder.epsGrowth5Y(getBigDecimal(m, "epsGrowth5Y"));
                 builder.revenueGrowth5Y(getBigDecimal(m, "revenueGrowth5Y"));
                 builder.focfCagr5Y(getBigDecimal(m, "focfCagr5Y"));
+            }
 
-                // Fallback FCF calculation if explicit FCF data is missing
+            // FCF data from cash flow statement (annual)
+            if (fcfData.isPresent()) {
+                fcfAnnual = fcfData.get().get("fcf");
+                fcfPerShare = fcfData.get().get("fcfPerShare");
+                
+                if (fcfAnnual != null) log.debug("FCF annual for {}: {}", ticker, fcfAnnual);
+                if (fcfPerShare != null) log.debug("FCF per share annual for {}: {}", ticker, fcfPerShare);
+            }
+
+            // Fallback FCF calculation if explicit FCF data is missing
+            if (fcfPerShare == null && metrics.isPresent()) {
+                Map<?, ?> m = metrics.get();
                 // Try to calculate from Price / FCF per share ratio (pfcfShareAnnual)
                 BigDecimal pfcfShareAnnual = getBigDecimal(m, "pfcfShareAnnual");
                 if (currentPrice != null && pfcfShareAnnual != null && pfcfShareAnnual.compareTo(BigDecimal.ZERO) != 0) {
                     try {
-                        BigDecimal calculatedFcfPerShare = currentPrice.divide(pfcfShareAnnual, 4, java.math.RoundingMode.HALF_UP);
-                        builder.fcfPerShareAnnual(calculatedFcfPerShare);
+                        fcfPerShare = currentPrice.divide(pfcfShareAnnual, 4, java.math.RoundingMode.HALF_UP);
                         log.debug("Calculated fallback FCF per share for {}: {} / {} = {}", 
-                                ticker, currentPrice, pfcfShareAnnual, calculatedFcfPerShare);
+                                ticker, currentPrice, pfcfShareAnnual, fcfPerShare);
                         
                         // Also try to calculate total FCF if shares outstanding is available
                         BigDecimal shares = profile.map(p -> getBigDecimal(p, "shareOutstanding")).orElse(null);
                         if (shares != null) {
-                            BigDecimal calculatedFcfTotal = calculatedFcfPerShare.multiply(shares);
-                            builder.fcfAnnual(calculatedFcfTotal);
+                            fcfAnnual = fcfPerShare.multiply(shares);
                         }
                     } catch (Exception e) {
                         log.warn("Failed to calculate fallback FCF: {}", e.getMessage());
                     }
                 }
-            });
+            }
+            
+            // Set FCF values
+            builder.fcfAnnual(fcfAnnual);
+            builder.fcfPerShareAnnual(fcfPerShare);
 
-            // FCF data from cash flow statement (annual)
-            fcfData.ifPresent(fcf -> {
-                BigDecimal fcfTotal = fcf.get("fcf");
-                BigDecimal fcfPerShare = fcf.get("fcfPerShare");
-                
-                if (fcfTotal != null) {
-                    builder.fcfAnnual(fcfTotal);
-                    log.debug("FCF annual for {}: {}", ticker, fcfTotal);
-                }
-                
-                if (fcfPerShare != null) {
-                    builder.fcfPerShareAnnual(fcfPerShare);
-                    log.debug("FCF per share annual for {}: {}", ticker, fcfPerShare);
-                }
-            });
+            // --- NEW CALCULATIONS ---
+            
+            // 1. Chowder Rule = Yield + Growth
+            if (dividendYield != null && dividendGrowth5Y != null) {
+                BigDecimal chowder = dividendYield.add(dividendGrowth5Y);
+                builder.chowderRuleValue(chowder);
+                log.debug("Calculated Chowder Rule for {}: {} + {} = {}", ticker, dividendYield, dividendGrowth5Y, chowder);
+            }
+            
+            // 2. Payout Ratio (FCF) = Dividend / FCF
+            if (dividendPerShare != null && fcfPerShare != null && fcfPerShare.compareTo(BigDecimal.ZERO) != 0) {
+                BigDecimal payoutFcf = dividendPerShare.divide(fcfPerShare, 4, java.math.RoundingMode.HALF_UP);
+                builder.payoutRatioFcf(payoutFcf);
+                log.debug("Calculated Payout Ratio (FCF) for {}: {} / {} = {}", ticker, dividendPerShare, fcfPerShare, payoutFcf);
+            }
 
             InstrumentFundamentals fundamentals = builder.build();
 

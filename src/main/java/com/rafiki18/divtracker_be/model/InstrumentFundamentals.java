@@ -88,6 +88,13 @@ public class InstrumentFundamentals {
     @Column(name = "focf_cagr_5y", precision = 10, scale = 4)
     private BigDecimal focfCagr5Y;
 
+    // Advanced Metrics
+    @Column(name = "payout_ratio_fcf", precision = 10, scale = 4)
+    private BigDecimal payoutRatioFcf;
+
+    @Column(name = "chowder_rule_value", precision = 10, scale = 4)
+    private BigDecimal chowderRuleValue;
+
     // Metadata
     @Enumerated(EnumType.STRING)
     @Column(name = "data_quality", length = 20, nullable = false)

@@ -59,6 +59,12 @@ public class WatchlistItemResponse {
     @Schema(description = "Rentabilidad por dividendo (Yield)", example = "3.50")
     private BigDecimal dividendYield;
 
+    @Schema(description = "Payout Ratio sobre FCF (más fiable que sobre EPS)", example = "0.45")
+    private BigDecimal payoutRatioFcf;
+
+    @Schema(description = "Valor de la Regla de Chowder (Yield + Crecimiento)", example = "12.50")
+    private BigDecimal chowderRuleValue;
+
     @Schema(description = "P/FCF actual calculado", example = "15.03")
     private BigDecimal actualPfcf;
 

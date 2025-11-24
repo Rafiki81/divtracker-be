@@ -72,14 +72,8 @@ public class TickerSearchService {
         String normalizedQuery = query.trim();
         log.debug("Searching tickers for query: {}", normalizedQuery);
         
-        // Try exact symbol lookup first (faster for tickers)
-        List<TickerSearchResult> results = finnhubClient.lookupSymbol(normalizedQuery);
-        
-        // If no results with exact lookup, try fuzzy search (for company names)
-        if (results.isEmpty()) {
-            log.debug("No results from symbol lookup, trying fuzzy search");
-            results = finnhubClient.searchSymbols(normalizedQuery);
-        }
+        // Use generic search directly (more efficient than downloading all symbols)
+        List<TickerSearchResult> results = finnhubClient.searchSymbols(normalizedQuery);
         
         log.info("Found {} ticker results for query: {}", results.size(), normalizedQuery);
         
