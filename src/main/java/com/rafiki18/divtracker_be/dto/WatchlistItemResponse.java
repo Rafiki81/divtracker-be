@@ -74,6 +74,12 @@ public class WatchlistItemResponse {
     @Schema(description = "Rentabilidad por dividendo (Yield)", example = "3.50")
     private BigDecimal dividendYield;
 
+    @Schema(description = "Crecimiento del dividendo a 5 años (%)", example = "8.50")
+    private BigDecimal dividendGrowthRate5Y;
+
+    @Schema(description = "Cobertura del dividendo (FCF/Dividendo). >1.5 es saludable", example = "2.15")
+    private BigDecimal dividendCoverageRatio;
+
     @Schema(description = "Payout Ratio sobre FCF (más fiable que sobre EPS)", example = "0.45")
     private BigDecimal payoutRatioFcf;
 

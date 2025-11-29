@@ -147,8 +147,18 @@ public class WatchlistMapper {
         response.setFocfCagr5Y(fundamentals.getFocfCagr5Y());
         response.setPeAnnual(fundamentals.getPeAnnual());
         response.setDividendYield(fundamentals.getDividendYield());
+        response.setDividendGrowthRate5Y(fundamentals.getDividendGrowthRate5Y());
         response.setPayoutRatioFcf(fundamentals.getPayoutRatioFcf());
         response.setChowderRuleValue(fundamentals.getChowderRuleValue());
+        
+        // Calculate Dividend Coverage Ratio (FCF / Dividend)
+        // > 1.5 is healthy, indicates dividend is well covered by free cash flow
+        if (fcfPerShare != null && fundamentals.getDividendPerShareAnnual() != null 
+                && fundamentals.getDividendPerShareAnnual().compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal coverageRatio = fcfPerShare.divide(
+                    fundamentals.getDividendPerShareAnnual(), 2, java.math.RoundingMode.HALF_UP);
+            response.setDividendCoverageRatio(coverageRatio);
+        }
         
         // New market data fields
         response.setDailyChangePercent(fundamentals.getDailyChangePercent());

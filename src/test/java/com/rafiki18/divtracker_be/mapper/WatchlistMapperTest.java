@@ -120,4 +120,29 @@ class WatchlistMapperTest {
         // Assert
         assertThat(response.getWeekRange52Position()).isEqualByComparingTo(new BigDecimal("0.5"));
     }
+
+    @Test
+    void testEnrichWithMarketData_CalculatesDividendCoverageRatio() {
+        // Arrange: FCF=10, Dividend=4 -> Coverage = 10/4 = 2.5
+        fundamentals.setFcfPerShareAnnual(new BigDecimal("10.00"));
+        fundamentals.setDividendPerShareAnnual(new BigDecimal("4.00"));
+        
+        // Act
+        mapper.enrichWithMarketData(response, fundamentals);
+
+        // Assert: 10/4 = 2.50 (healthy coverage > 1.5)
+        assertThat(response.getDividendCoverageRatio()).isEqualByComparingTo(new BigDecimal("2.50"));
+    }
+
+    @Test
+    void testEnrichWithMarketData_MapsDividendGrowthRate5Y() {
+        // Arrange
+        fundamentals.setDividendGrowthRate5Y(new BigDecimal("8.50"));
+        
+        // Act
+        mapper.enrichWithMarketData(response, fundamentals);
+
+        // Assert
+        assertThat(response.getDividendGrowthRate5Y()).isEqualTo(new BigDecimal("8.50"));
+    }
 }
