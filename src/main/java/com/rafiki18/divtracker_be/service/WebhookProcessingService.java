@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,15 @@ public class WebhookProcessingService {
 
     private final MarketPriceTickRepository marketPriceTickRepository;
     private final InstrumentFundamentalsRepository instrumentFundamentalsRepository;
+    
+    // Optional dependency - only injected when fcm.enabled=true
+    private PushNotificationService pushNotificationService;
+    
+    @Autowired(required = false)
+    public void setPushNotificationService(PushNotificationService pushNotificationService) {
+        this.pushNotificationService = pushNotificationService;
+        log.info("Push notification service enabled");
+    }
 
     /**
      * Processes the webhook payload asynchronously.
@@ -127,6 +137,12 @@ public class WebhookProcessingService {
             
             instrumentFundamentalsRepository.save(fundamentals);
             log.debug("Updated price for {}: {} -> {}", ticker, oldPrice, price);
+            
+            // 3. Send push notifications if enabled
+            if (pushNotificationService != null) {
+                BigDecimal changePercent = fundamentals.getDailyChangePercent();
+                pushNotificationService.sendPriceUpdateNotifications(ticker, price, oldPrice, changePercent);
+            }
             
         } catch (Exception e) {
             log.error("Error processing trade data: {}", trade, e);

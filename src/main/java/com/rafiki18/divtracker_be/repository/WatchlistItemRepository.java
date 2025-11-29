@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.rafiki18.divtracker_be.model.WatchlistItem;
@@ -40,4 +41,15 @@ public interface WatchlistItemRepository extends JpaRepository<WatchlistItem, UU
      */
     @Query("select distinct upper(w.ticker) from WatchlistItem w")
     List<String> findDistinctTickers();
+
+    /**
+     * Obtiene el listado de tickers únicos para un usuario específico
+     */
+    @Query("select distinct upper(w.ticker) from WatchlistItem w where w.userId = :userId")
+    List<String> findDistinctTickersByUserId(@Param("userId") UUID userId);
+
+    /**
+     * Encuentra todos los items de un usuario sin paginación
+     */
+    List<WatchlistItem> findByUserId(UUID userId);
 }
