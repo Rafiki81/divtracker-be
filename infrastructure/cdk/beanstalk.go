@@ -234,7 +234,12 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
 			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
 			OptionName: jsii.String("FCM_ENABLED"),
-			Value:      jsii.String(func() string { if props.FirebaseCredentialsJson != "" { return "true" }; return "false" }()),
+			Value: jsii.String(func() string {
+				if props.FirebaseCredentialsJson != "" {
+					return "true"
+				}
+				return "false"
+			}()),
 		},
 	}
 

@@ -649,25 +649,27 @@ make infra-destroy     # Destruir infraestructura
 ## 📝 Roadmap
 
 ### ✅ Completado
-- [x] Autenticación JWT
-- [x] CRUD de Watchlist
-- [x] Integración con Finnhub
-- [x] Métricas financieras avanzadas
-- [x] Webhooks para datos en tiempo real
-- [x] Tests unitarios y de integración
-- [x] Infraestructura AWS con Terraform
-- [x] CI/CD con scripts automatizados
+- [x] Autenticación JWT con OAuth2 (Google)
+- [x] CRUD de Watchlist con métricas automáticas
+- [x] Integración con Finnhub API
+- [x] Métricas financieras avanzadas (DCF, TIR, Chowder Rule, etc.)
+- [x] Webhooks para actualizaciones de precios en tiempo real
+- [x] Tests unitarios y de integración (138+ tests)
+- [x] Infraestructura AWS con CDK (Go)
+- [x] CI/CD con GitHub Actions
+- [x] 🔔 Push Notifications con Firebase Cloud Messaging
+- [x] Alertas de precio objetivo (PRICE_ALERT)
+- [x] Alertas de margen de seguridad (MARGIN_ALERT)
 
 ### 🚧 En desarrollo
 - [ ] Tests E2E completos
-- [ ] Cache con Redis
-- [ ] Rate limiting
+- [ ] Resumen diario programado (DAILY_SUMMARY scheduler)
 - [ ] Notificaciones por email
 
 ### 🔮 Futuro
-- [ ] Frontend React/Vue
-- [ ] App móvil
-- [ ] Alertas de precio
+- [ ] Cache con Redis
+- [ ] Rate limiting
+- [ ] App Android (cliente móvil)
 - [ ] Backtesting de estrategias
 - [ ] Dashboard de portfolio
 - [ ] API pública con rate limiting
