@@ -1,0 +1,30 @@
+### ============================================
+### DivTracker API - Fundamentals & Admin
+### ============================================
+
+### Variables
+@baseUrl = http://localhost:8080
+@contentType = application/json
+@authToken = YOUR_JWT_TOKEN_HERE
+
+### ============================================
+### Refresh Fundamentals - Manual para un ticker
+### ============================================
+@ticker = AAPL
+
+POST {{baseUrl}}/api/v1/fundamentals/{{ticker}}/refresh
+Authorization: Bearer {{authToken}}
+
+### ============================================
+### Admin: Refresh Stale Fundamentals
+### Actualiza fundamentals con más de 24h de antigüedad
+### ============================================
+POST {{baseUrl}}/api/v1/admin/refresh-fundamentals
+Authorization: Bearer {{authToken}}
+
+### ============================================
+### Admin: Cleanup Old Fundamentals
+### Elimina fundamentals con más de 30 días
+### ============================================
+POST {{baseUrl}}/api/v1/admin/cleanup-old-fundamentals
+Authorization: Bearer {{authToken}}

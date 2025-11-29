@@ -1,0 +1,83 @@
+### ============================================
+### DivTracker API - Watchlist
+### ============================================
+
+### Variables (copiar token después de login)
+@baseUrl = http://localhost:8080
+@contentType = application/json
+@authToken = YOUR_JWT_TOKEN_HERE
+
+### ============================================
+### List Items - Listar watchlist (paginado)
+### ============================================
+GET {{baseUrl}}/api/v1/watchlist?page=0&size=10&sort=createdAt,desc
+Authorization: Bearer {{authToken}}
+
+### ============================================
+### Get Item by ID
+### ============================================
+@itemId = YOUR_ITEM_UUID_HERE
+
+GET {{baseUrl}}/api/v1/watchlist/{{itemId}}
+Authorization: Bearer {{authToken}}
+
+### ============================================
+### Create Item - Simple (solo ticker)
+### ============================================
+POST {{baseUrl}}/api/v1/watchlist
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "ticker": "AAPL"
+}
+
+### ============================================
+### Create Item - Con precio objetivo
+### ============================================
+POST {{baseUrl}}/api/v1/watchlist
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "ticker": "MSFT",
+  "exchange": "NASDAQ",
+  "targetPrice": 350.00,
+  "notes": "Empresa de software líder"
+}
+
+### ============================================
+### Create Item - Advanced (con métricas DCF)
+### ============================================
+POST {{baseUrl}}/api/v1/watchlist
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "ticker": "GOOGL",
+  "exchange": "NASDAQ",
+  "targetPrice": 150.00,
+  "targetPfcf": 18.0,
+  "estimatedFcfGrowthRate": 12.0,
+  "investmentHorizonYears": 5,
+  "discountRate": 10.0,
+  "notes": "Alphabet - análisis DCF completo"
+}
+
+### ============================================
+### Update Item - Actualización parcial (PATCH)
+### ============================================
+PATCH {{baseUrl}}/api/v1/watchlist/{{itemId}}
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "targetPrice": 175.00,
+  "notes": "Actualizado después de earnings Q3"
+}
+
+### ============================================
+### Delete Item
+### ============================================
+DELETE {{baseUrl}}/api/v1/watchlist/{{itemId}}
+Authorization: Bearer {{authToken}}

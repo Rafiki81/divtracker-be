@@ -1,0 +1,59 @@
+### ============================================
+### DivTracker API - Webhooks
+### ============================================
+
+### Variables
+@baseUrl = http://localhost:8080
+@contentType = application/json
+
+### ============================================
+### Finnhub Webhook - Simular actualización de precio
+### Este endpoint recibe webhooks de Finnhub cuando 
+### hay actualizaciones de precios en tiempo real
+### ============================================
+POST {{baseUrl}}/api/webhooks/finnhub
+Content-Type: {{contentType}}
+X-Finnhub-Secret: your-webhook-secret
+
+{
+  "type": "trade",
+  "data": [
+    {
+      "s": "AAPL",
+      "p": 178.50,
+      "t": 1700000000000,
+      "v": 100
+    }
+  ]
+}
+
+### ============================================
+### Finnhub Webhook - Multiple tickers
+### ============================================
+POST {{baseUrl}}/api/webhooks/finnhub
+Content-Type: {{contentType}}
+X-Finnhub-Secret: your-webhook-secret
+
+{
+  "type": "trade",
+  "data": [
+    {
+      "s": "AAPL",
+      "p": 178.50,
+      "t": 1700000000000,
+      "v": 100
+    },
+    {
+      "s": "MSFT",
+      "p": 375.25,
+      "t": 1700000000000,
+      "v": 50
+    },
+    {
+      "s": "GOOGL",
+      "p": 141.80,
+      "t": 1700000000000,
+      "v": 75
+    }
+  ]
+}

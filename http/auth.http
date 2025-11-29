@@ -1,0 +1,37 @@
+### ============================================
+### DivTracker API - Authentication
+### ============================================
+
+### Variables de entorno
+@baseUrl = http://localhost:8080
+@contentType = application/json
+
+### ============================================
+### Signup - Registro de nuevo usuario
+### ============================================
+POST {{baseUrl}}/api/auth/signup
+Content-Type: {{contentType}}
+
+{
+  "email": "nuevo@ejemplo.com",
+  "password": "SecurePass123!",
+  "firstName": "John",
+  "lastName": "Doe"
+}
+
+### ============================================
+### Login - Iniciar sesión
+### ============================================
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "test@ejemplo.com",
+  "password": "password123"
+}
+
+### ============================================
+### Guardar token de la respuesta anterior
+### ============================================
+@authToken = {{login.response.body.token}}

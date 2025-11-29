@@ -1,0 +1,64 @@
+### ============================================
+### DivTracker API - Devices (FCM Push Notifications)
+### ============================================
+
+### Variables
+@baseUrl = http://localhost:8080
+@contentType = application/json
+@authToken = YOUR_JWT_TOKEN_HERE
+
+### ============================================
+### Register Device - Android
+### ============================================
+POST {{baseUrl}}/api/v1/devices/register
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "fcmToken": "fK1234567890abcdefghijklmnopqrstuvwxyz:APA91bExampleToken",
+  "deviceId": "android-pixel-8-pro",
+  "platform": "ANDROID",
+  "deviceName": "Pixel 8 Pro"
+}
+
+### ============================================
+### Register Device - iOS
+### ============================================
+POST {{baseUrl}}/api/v1/devices/register
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "fcmToken": "iOS_FCM_TOKEN_HERE",
+  "deviceId": "ios-iphone-15",
+  "platform": "IOS",
+  "deviceName": "iPhone 15 Pro"
+}
+
+### ============================================
+### Register Device - Web
+### ============================================
+POST {{baseUrl}}/api/v1/devices/register
+Content-Type: {{contentType}}
+Authorization: Bearer {{authToken}}
+
+{
+  "fcmToken": "WEB_FCM_TOKEN_HERE",
+  "deviceId": "web-chrome-macos",
+  "platform": "WEB",
+  "deviceName": "Chrome MacOS"
+}
+
+### ============================================
+### List Devices - Ver dispositivos registrados
+### ============================================
+GET {{baseUrl}}/api/v1/devices
+Authorization: Bearer {{authToken}}
+
+### ============================================
+### Delete Device
+### ============================================
+@deviceId = android-pixel-8-pro
+
+DELETE {{baseUrl}}/api/v1/devices/{{deviceId}}
+Authorization: Bearer {{authToken}}

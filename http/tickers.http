@@ -1,0 +1,44 @@
+### ============================================
+### DivTracker API - Ticker Search
+### ============================================
+
+### Variables
+@baseUrl = http://localhost:8080
+@authToken = YOUR_JWT_TOKEN_HERE
+
+### ============================================
+### Lookup Symbol - Búsqueda exacta por símbolo
+### Recomendado para autocompletado
+### ============================================
+GET {{baseUrl}}/api/v1/tickers/lookup?symbol=BAM
+Authorization: Bearer {{authToken}}
+
+### ============================================
+### Lookup - Apple
+### ============================================
+GET {{baseUrl}}/api/v1/tickers/lookup?symbol=AAPL
+Authorization: Bearer {{authToken}}
+
+### ============================================
+### Lookup - Microsoft
+### ============================================
+GET {{baseUrl}}/api/v1/tickers/lookup?symbol=MSFT
+Authorization: Bearer {{authToken}}
+
+### ============================================
+### Search by Name - Búsqueda fuzzy por nombre
+### ============================================
+GET {{baseUrl}}/api/v1/tickers/search?q=apple
+Authorization: Bearer {{authToken}}
+
+### ============================================
+### Search - Coca Cola
+### ============================================
+GET {{baseUrl}}/api/v1/tickers/search?q=coca%20cola
+Authorization: Bearer {{authToken}}
+
+### ============================================
+### Search - Bank
+### ============================================
+GET {{baseUrl}}/api/v1/tickers/search?q=bank
+Authorization: Bearer {{authToken}}

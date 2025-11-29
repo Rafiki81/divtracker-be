@@ -1,0 +1,34 @@
+### ============================================
+### DivTracker API - Health & Info
+### ============================================
+
+### Variables
+@baseUrl = http://localhost:8080
+
+### ============================================
+### Health Check - Estado del servidor
+### ============================================
+GET {{baseUrl}}/actuator/health
+
+### ============================================
+### Info - Información de la aplicación
+### ============================================
+GET {{baseUrl}}/actuator/info
+
+### ============================================
+### Metrics - Métricas del servidor
+### ============================================
+GET {{baseUrl}}/actuator/metrics
+
+### ============================================
+### Test - Public Endpoint (sin auth)
+### ============================================
+GET {{baseUrl}}/api/test/public
+
+### ============================================
+### Test - Protected Endpoint (con auth)
+### ============================================
+@authToken = YOUR_JWT_TOKEN_HERE
+
+GET {{baseUrl}}/api/test/protected
+Authorization: Bearer {{authToken}}
