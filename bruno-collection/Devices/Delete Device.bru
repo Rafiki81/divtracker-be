@@ -1,0 +1,41 @@
+meta {
+  name: Delete Device
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/devices/{{deviceId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+vars:pre-request {
+  deviceId: android-device-12345
+}
+
+docs {
+  Elimina un dispositivo registrado para dejar de recibir push notifications.
+  
+  **Parámetros:**
+  - `deviceId`: El identificador del dispositivo a eliminar (en la URL)
+  
+  **Uso típico:**
+  - Cuando el usuario cierra sesión en un dispositivo
+  - Para limpiar dispositivos antiguos o inactivos
+  - Cuando el usuario desactiva las notificaciones
+  
+  **Nota:**
+  - El deviceId es el valor que enviaste al registrar, no el UUID interno
+  - Solo puedes eliminar tus propios dispositivos
+}
+
+tests {
+  test("Status code is 204 No Content", function() {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

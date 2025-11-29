@@ -73,6 +73,13 @@ Watchlist → Update Item             (actualizar empresa)
 Watchlist → Delete Item             (eliminar empresa)
 ```
 
+#### Paso 5: Configurar Push Notifications (opcional)
+```
+Devices → Register Device   (registrar dispositivo para FCM)
+Devices → List Devices      (ver dispositivos registrados)
+Devices → Delete Device     (eliminar dispositivo)
+```
+
 ## 📂 Estructura de la Colección
 
 ```
@@ -94,6 +101,13 @@ bruno-collection/
 │   ├── Create Item - Advanced.bru # Crear con análisis avanzado
 │   ├── Update Item.bru           # Actualizar
 │   └── Delete Item.bru           # Eliminar
+├── Devices/                       # 🔔 Push Notifications (FCM)
+│   ├── Register Device.bru       # Registrar dispositivo
+│   ├── List Devices.bru          # Listar dispositivos
+│   └── Delete Device.bru         # Eliminar dispositivo
+├── Tickers/
+│   ├── Lookup Symbol.bru         # Búsqueda exacta de símbolo
+│   └── Search by Name.bru        # Búsqueda fuzzy por nombre
 ├── Fundamentals/
 │   └── Refresh Fundamentals.bru  # Actualizar datos desde Finnhub
 ├── Admin/
@@ -154,6 +168,24 @@ PATCH /api/v1/watchlist/{id}
 ```
 
 Solo incluye los campos que quieres cambiar (PATCH parcial).
+
+### Registrar dispositivo para Push Notifications
+
+```json
+POST /api/v1/devices/register
+{
+  "fcmToken": "fK1234567890abcdef...",
+  "deviceId": "android-unique-id",
+  "platform": "ANDROID",
+  "deviceName": "Pixel 8 Pro"
+}
+```
+
+**Tipos de notificaciones que recibirás:**
+- 🔔 **PRICE_ALERT**: Cuando un ticker alcanza tu precio objetivo
+- 📊 **MARGIN_ALERT**: Cuando el margen de seguridad supera tu umbral
+- 📈 **PRICE_UPDATE**: Actualizaciones silenciosas de precios (data-only)
+- 📅 **DAILY_SUMMARY**: Resumen diario de tu watchlist (22:00 CET)
 
 ## 🧪 Tests Automáticos
 

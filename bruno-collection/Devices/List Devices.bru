@@ -1,0 +1,54 @@
+meta {
+  name: List Devices
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/devices
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+docs {
+  Lista todos los dispositivos registrados del usuario autenticado.
+  
+  **Response:**
+  - Array de dispositivos con:
+    - id: UUID del registro
+    - platform: ANDROID | IOS | WEB
+    - deviceId: Identificador del dispositivo
+    - deviceName: Nombre descriptivo
+    - active: Si está activo para recibir notificaciones
+    - registeredAt: Fecha de registro
+    - lastUsedAt: Última vez que se usó
+  
+  **Uso típico:**
+  - Ver qué dispositivos están registrados
+  - Identificar dispositivos para eliminar
+  - Verificar estado de las notificaciones
+}
+
+tests {
+  test("Status code is 200", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+  
+  test("Response is an array", function() {
+    const body = res.getBody();
+    expect(body).to.be.an('array');
+  });
+  
+  test("Devices have required fields", function() {
+    const body = res.getBody();
+    if (body.length > 0) {
+      expect(body[0].id).to.exist;
+      expect(body[0].platform).to.exist;
+      expect(body[0].deviceId).to.exist;
+    }
+  });
+}

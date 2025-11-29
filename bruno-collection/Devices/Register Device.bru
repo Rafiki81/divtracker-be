@@ -1,0 +1,63 @@
+meta {
+  name: Register Device
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/devices/register
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{authToken}}
+}
+
+body:json {
+  {
+    "fcmToken": "fK1234567890abcdefghijklmnopqrstuvwxyz:APA91bExampleToken",
+    "deviceId": "android-device-{{$timestamp}}",
+    "platform": "ANDROID",
+    "deviceName": "Pixel 8 Pro"
+  }
+}
+
+docs {
+  Registra un dispositivo para recibir push notifications via Firebase Cloud Messaging.
+  
+  **Campos:**
+  - `fcmToken` (obligatorio): Token FCM obtenido de Firebase en el cliente
+  - `deviceId` (obligatorio): Identificador único del dispositivo
+  - `platform` (obligatorio): ANDROID | IOS | WEB
+  - `deviceName` (opcional): Nombre descriptivo del dispositivo
+  
+  **Comportamiento:**
+  - Si el deviceId ya existe, actualiza el token FCM
+  - El token se asocia al usuario autenticado
+  - Tokens inválidos se desactivan automáticamente
+  
+  **Tipos de notificaciones:**
+  - PRICE_UPDATE: Actualización silenciosa de precios
+  - PRICE_ALERT: Precio objetivo alcanzado
+  - MARGIN_ALERT: Margen de seguridad alcanzado
+  - DAILY_SUMMARY: Resumen diario de watchlist
+}
+
+tests {
+  test("Status code is 200 or 201", function() {
+    expect([200, 201]).to.include(res.getStatus());
+  });
+  
+  test("Response has device info", function() {
+    const body = res.getBody();
+    expect(body.id).to.be.a('string');
+    expect(body.platform).to.equal("ANDROID");
+    expect(body.active).to.equal(true);
+  });
+  
+  test("Device is registered", function() {
+    const body = res.getBody();
+    expect(body.registeredAt).to.exist;
+  });
+}
