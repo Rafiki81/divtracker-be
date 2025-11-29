@@ -32,9 +32,16 @@ DivTracker es una aplicación backend REST API para análisis financiero avanzad
   - Margen de Seguridad
   - Periodo de Payback
   - ROI Estimado
+  - **Payout Ratio FCF** (Sostenibilidad del dividendo)
+  - **Chowder Rule** (Dividend Yield + DGR 5Y ≥ 12%)
+- 📊 **Datos de mercado en tiempo real**:
+  - Capitalización de mercado
+  - Rango 52 semanas (máximo/mínimo)
+  - Posición en rango 52 semanas (0-1)
+  - Cambio diario porcentual
 - 🔔 **Webhooks de Finnhub** para actualizaciones en tiempo real de precios
 - 🛠️ **Herramientas de Administración** para gestión manual de datos y limpieza
-- 🗄️ **PostgreSQL** con migraciones Flyway (Optimizado con esquema V7)
+- 🗄️ **PostgreSQL** con migraciones Flyway (V1-V11: Schema optimizado + Métricas avanzadas)
 - 📝 **OpenAPI/Swagger** y **Bruno Collection** para documentación y testing
 - 🐳 **Docker** y **AWS Elastic Beanstalk** ready
 - 🏗️ **AWS CDK (Go)** para infraestructura como código
@@ -125,7 +132,10 @@ divtracker-be/
 │   │           ├── V1__create_users_table.sql
 │   │           ├── V2__create_watchlist_items.sql
 │   │           ├── V3__create_market_price_ticks.sql
-│   │           └── V4__add_valuation_parameters.sql
+│   │           ├── V4__add_valuation_parameters.sql
+│   │           ├── ...
+│   │           ├── V10__add_payout_fcf_and_chowder.sql
+│   │           └── V11__add_market_data_fields.sql
 │   └── test/
 │       └── java/com/rafiki18/divtracker_be/
 │           ├── controller/           # Tests de integración
@@ -346,6 +356,13 @@ Content-Type: application/json
   "estimatedIRR": 13.79,
   "paybackPeriod": 7.25,
   "estimatedROI": 78.96,
+  "payoutRatioFcf": 24.68,
+  "chowderRuleValue": 13.25,
+  "dailyChangePercent": 1.23,
+  "marketCapitalization": 2750000000000,
+  "weekHigh52": 199.62,
+  "weekLow52": 124.17,
+  "weekRange52Position": 0.68,
   "createdAt": "2024-11-22T10:30:00Z"
 }
 
@@ -454,6 +471,29 @@ Años necesarios para recuperar la inversión.
 ROI = (Ganancia Capital + FCF Acumulado) / Inversión × 100
 ```
 Retorno total esperado en el horizonte temporal.
+
+### Payout Ratio FCF (Nuevo)
+```
+Payout Ratio FCF = (Dividendos por acción / FCF por acción) × 100
+```
+Mide la sostenibilidad del dividendo. < 70% es ideal, indica margen para crecimiento.
+
+### Chowder Rule (Nuevo)
+```
+Chowder = Dividend Yield (%) + Dividend Growth Rate 5Y (%)
+```
+Regla de inversión en dividendos:
+- **≥ 12%**: Buena oportunidad (acciones de crecimiento de dividendos)
+- **≥ 8%**: Aceptable para "dividend aristocrats" con yield > 3%
+
+### Posición en Rango 52 Semanas (Nuevo)
+```
+Posición = (Precio actual - Mínimo 52s) / (Máximo 52s - Mínimo 52s)
+```
+Valor entre 0 y 1:
+- **0**: Precio en el mínimo de 52 semanas
+- **1**: Precio en el máximo de 52 semanas
+- **< 0.3**: Potencialmente infravalorado
 
 ---
 
