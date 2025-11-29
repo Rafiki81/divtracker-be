@@ -150,6 +150,22 @@ public class WatchlistMapper {
         response.setPayoutRatioFcf(fundamentals.getPayoutRatioFcf());
         response.setChowderRuleValue(fundamentals.getChowderRuleValue());
         
+        // New market data fields
+        response.setDailyChangePercent(fundamentals.getDailyChangePercent());
+        response.setMarketCapitalization(fundamentals.getMarketCapitalization());
+        response.setWeekHigh52(fundamentals.getWeekHigh52());
+        response.setWeekLow52(fundamentals.getWeekLow52());
+        
+        // Calculate 52-week range position (0 = at low, 1 = at high)
+        if (currentPrice != null && fundamentals.getWeekHigh52() != null && fundamentals.getWeekLow52() != null) {
+            BigDecimal range = fundamentals.getWeekHigh52().subtract(fundamentals.getWeekLow52());
+            if (range.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal position = currentPrice.subtract(fundamentals.getWeekLow52())
+                        .divide(range, 4, java.math.RoundingMode.HALF_UP);
+                response.setWeekRange52Position(position);
+            }
+        }
+        
         // Si falta alguno de los dos datos críticos, no podemos calcular métricas de valoración
         if (currentPrice == null || fcfPerShare == null) {
             return;

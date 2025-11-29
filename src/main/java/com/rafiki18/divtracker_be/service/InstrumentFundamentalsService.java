@@ -145,12 +145,14 @@ public class InstrumentFundamentalsService {
                 builder.currency(getString(p, "currency"));
                 builder.sector(getString(p, "finnhubIndustry"));
                 builder.shareOutstanding(getBigDecimal(p, "shareOutstanding"));
+                builder.marketCapitalization(getBigDecimal(p, "marketCapitalization"));
             });
 
-            // Quote data - only current price
+            // Quote data - price and daily change
             BigDecimal currentPrice = quote.map(q -> getBigDecimal(q, "c")).orElse(null);
             quote.ifPresent(q -> {
                 builder.currentPrice(getBigDecimal(q, "c"));
+                builder.dailyChangePercent(getBigDecimal(q, "dp"));
             });
 
             // Variables for calculation
@@ -186,6 +188,10 @@ public class InstrumentFundamentalsService {
                 builder.epsGrowth5Y(getBigDecimal(m, "epsGrowth5Y"));
                 builder.revenueGrowth5Y(getBigDecimal(m, "revenueGrowth5Y"));
                 builder.focfCagr5Y(getBigDecimal(m, "focfCagr5Y"));
+
+                // 52-week range
+                builder.weekHigh52(getBigDecimal(m, "52WeekHigh"));
+                builder.weekLow52(getBigDecimal(m, "52WeekLow"));
             }
 
             // FCF data from cash flow statement (annual)

@@ -44,6 +44,21 @@ public class WatchlistItemResponse {
     @Schema(description = "Precio actual de mercado", example = "172.15")
     private BigDecimal currentPrice;
 
+    @Schema(description = "Variación porcentual diaria", example = "1.25")
+    private BigDecimal dailyChangePercent;
+
+    @Schema(description = "Capitalización de mercado (millones)", example = "2850000")
+    private BigDecimal marketCapitalization;
+
+    @Schema(description = "Máximo de 52 semanas", example = "199.62")
+    private BigDecimal weekHigh52;
+
+    @Schema(description = "Mínimo de 52 semanas", example = "124.17")
+    private BigDecimal weekLow52;
+
+    @Schema(description = "Posición en el rango de 52 semanas (0-1)", example = "0.65")
+    private BigDecimal weekRange52Position;
+
     @Schema(description = "FCF por acción reportado", example = "11.45")
     private BigDecimal freeCashFlowPerShare;
 

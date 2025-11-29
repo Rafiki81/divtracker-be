@@ -88,4 +88,36 @@ class WatchlistMapperTest {
         assertThat(response.getPayoutRatioFcf()).isEqualTo(new BigDecimal("0.45"));
         assertThat(response.getChowderRuleValue()).isEqualTo(new BigDecimal("12.5"));
     }
+
+    @Test
+    void testEnrichWithMarketData_MapsMarketDataFields() {
+        // Arrange
+        fundamentals.setDailyChangePercent(new BigDecimal("1.25"));
+        fundamentals.setMarketCapitalization(new BigDecimal("2850000"));
+        fundamentals.setWeekHigh52(new BigDecimal("199.62"));
+        fundamentals.setWeekLow52(new BigDecimal("124.17"));
+        
+        // Act
+        mapper.enrichWithMarketData(response, fundamentals);
+
+        // Assert
+        assertThat(response.getDailyChangePercent()).isEqualTo(new BigDecimal("1.25"));
+        assertThat(response.getMarketCapitalization()).isEqualTo(new BigDecimal("2850000"));
+        assertThat(response.getWeekHigh52()).isEqualTo(new BigDecimal("199.62"));
+        assertThat(response.getWeekLow52()).isEqualTo(new BigDecimal("124.17"));
+    }
+
+    @Test
+    void testEnrichWithMarketData_Calculates52WeekRangePosition() {
+        // Arrange: price=100, low=50, high=150 -> position = (100-50)/(150-50) = 0.5
+        fundamentals.setCurrentPrice(new BigDecimal("100.00"));
+        fundamentals.setWeekLow52(new BigDecimal("50.00"));
+        fundamentals.setWeekHigh52(new BigDecimal("150.00"));
+        
+        // Act
+        mapper.enrichWithMarketData(response, fundamentals);
+
+        // Assert
+        assertThat(response.getWeekRange52Position()).isEqualByComparingTo(new BigDecimal("0.5"));
+    }
 }

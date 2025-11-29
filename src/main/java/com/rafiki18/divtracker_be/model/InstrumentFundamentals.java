@@ -46,6 +46,19 @@ public class InstrumentFundamentals {
     @Column(name = "current_price", precision = 19, scale = 4)
     private BigDecimal currentPrice;
 
+    @Column(name = "daily_change_percent", precision = 10, scale = 4)
+    private BigDecimal dailyChangePercent;
+
+    // Market data
+    @Column(name = "market_capitalization", precision = 19, scale = 2)
+    private BigDecimal marketCapitalization;
+
+    @Column(name = "week_high_52", precision = 19, scale = 4)
+    private BigDecimal weekHigh52;
+
+    @Column(name = "week_low_52", precision = 19, scale = 4)
+    private BigDecimal weekLow52;
+
     // Valuation metrics
     @Column(name = "pe_annual", precision = 19, scale = 4)
     private BigDecimal peAnnual;
