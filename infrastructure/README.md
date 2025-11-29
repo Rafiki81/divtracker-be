@@ -74,7 +74,7 @@ infrastructure/
 │   ├── beanstalk.go                   # Elastic Beanstalk construct
 │   └── .gitignore                     # CDK specific ignores
 └── scripts/                           # Scripts de automatización
-    ├── init-terraform-backend.sh      # Bootstrap CDK (cdk bootstrap)
+    ├── bootstrap-cdk.sh               # Bootstrap CDK (cdk bootstrap)
     ├── build-for-aws.sh               # Construye y empaqueta la aplicación
     └── deploy.sh                      # Despliega la aplicación a Elastic Beanstalk
 ```
@@ -269,7 +269,7 @@ make infra-init-backend
 
 # O manualmente:
 cd infrastructure/scripts
-./init-terraform-backend.sh  # (renombrado pero funciona para CDK)
+./bootstrap-cdk.sh
 ```
 
 Este comando ejecuta:
@@ -395,32 +395,24 @@ Database Status: Connected
 
 ## 📊 Comandos del Makefile
 
-### Infraestructura
+### Infraestructura (AWS CDK con Go)
 
 ```bash
-# Backend de Terraform
-make infra-init-backend    # Crear S3 bucket y DynamoDB table
-
-# Gestión de Terraform
-make infra-init            # Inicializar Terraform
-make infra-plan            # Ver plan de ejecución
-make infra-apply           # Aplicar cambios
+# Gestión de CDK
+make infra-deps            # Instalar dependencias Go para CDK
+make infra-synth           # Generar templates CloudFormation
+make infra-diff            # Ver diferencias con stack actual
+make infra-deploy          # Desplegar infraestructura (manual)
 make infra-destroy         # DESTRUIR toda la infraestructura
 make infra-output          # Ver outputs (URLs, endpoints)
-make infra-format          # Formatear archivos .tf
 
 # Despliegue de Aplicación
 make aws-build             # Construir paquete para AWS
 make deploy-prod           # Desplegar a producción
-make deploy-dev            # Desplegar a desarrollo
 
 # Monitorización
 make logs-prod             # Ver logs de producción
-make logs-dev              # Ver logs de desarrollo
 make verify-health         # Verificar health endpoint
-
-# Stack Completo
-make deploy-full           # infra-apply + deploy-prod
 ```
 
 ### Desarrollo Local
@@ -501,17 +493,17 @@ aws elasticbeanstalk describe-configuration-settings \
 make infra-output
 ```
 
-### Problema: Terraform state lock
+### Problema: CDK deployment falla con stack locked
 
-**Síntoma**: `Error locking state: ConditionalCheckFailedException`
+**Síntoma**: `Resource is in use` o errores de concurrencia
 
 **Solución**:
 ```bash
-# Ver locks activos
-aws dynamodb scan --table-name divtracker-terraform-locks
+# Ver estado del stack en CloudFormation
+aws cloudformation describe-stacks --stack-name DivtrackerStack
 
-# Forzar unlock (solo si estás seguro de que no hay otra operación)
-terraform force-unlock <LOCK_ID>
+# Si hay una operación en progreso, esperar o cancelar
+aws cloudformation cancel-update-stack --stack-name DivtrackerStack
 ```
 
 ### Problema: Despliegue falla con health check
@@ -584,20 +576,15 @@ aws elasticbeanstalk describe-configuration-settings \
 # Opción 1: Makefile
 make infra-destroy
 
-# Opción 2: Terraform directo
-cd infrastructure/terraform/environments/prod
-terraform destroy
+# Opción 2: CDK directo
+cd infrastructure/cdk
+cdk destroy
 ```
 
-### Destrucción Parcial
+### Destrucción vía GitHub Actions
 
-```bash
-# Solo destruir Elastic Beanstalk (mantener RDS)
-terraform destroy -target=module.beanstalk
-
-# Solo destruir RDS (mantener app)
-terraform destroy -target=module.rds
-```
+La forma recomendada es usar el workflow "Destruir Infraestructura" en GitHub Actions
+que tiene confirmaciones de seguridad adicionales.
 
 ### Backup Antes de Destruir
 
@@ -623,10 +610,10 @@ aws secretsmanager get-secret-value \
 - Usar AWS Secrets Manager para credenciales
 - Rotar passwords regularmente
 - No hardcodear secrets en código
-- Usar `.gitignore` para `terraform.tfvars`
+- Usar GitHub Secrets para CI/CD
 
 ❌ **No hacer**:
-- Commitear `terraform.tfvars` con secrets
+- Commitear archivos con secrets
 - Usar passwords débiles
 - Compartir credenciales por email/Slack
 
@@ -650,7 +637,6 @@ aws secretsmanager get-secret-value \
 ✅ **Datos en reposo**:
 - RDS: storage encriptado con AES-256
 - Secrets Manager: encriptación por defecto
-- S3 (Terraform state): SSE-S3
 
 ✅ **Datos en tránsito**:
 - HTTPS para tráfico web (configurar certificado SSL)
@@ -662,14 +648,14 @@ aws secretsmanager get-secret-value \
 
 ### Documentación Oficial
 
-- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
+- [AWS CDK Go](https://docs.aws.amazon.com/cdk/v2/guide/work-with-cdk-go.html)
 - [AWS Elastic Beanstalk](https://docs.aws.amazon.com/elasticbeanstalk/)
 - [AWS RDS PostgreSQL](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_PostgreSQL.html)
 - [AWS Free Tier](https://aws.amazon.com/free/)
 
 ### Tutoriales
 
-- [Getting Started with Terraform](https://learn.hashicorp.com/terraform)
+- [Getting Started with AWS CDK](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html)
 - [Elastic Beanstalk Java Tutorial](https://docs.aws.amazon.com/elasticbeanstalk/latest/dg/java-getstarted.html)
 - [RDS Best Practices](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_BestPractices.html)
 
@@ -680,20 +666,24 @@ aws secretsmanager get-secret-value \
 Para modificar la infraestructura:
 
 1. Crear branch para cambios: `git checkout -b infra/descripcion-cambio`
-2. Modificar archivos `.tf` necesarios
-3. Formatear código: `make infra-format`
-4. Validar cambios: `terraform validate`
-5. Probar con `terraform plan`
-6. Crear PR con descripción detallada
-7. Aplicar después de revisión: `make infra-apply`
+2. Modificar archivos Go en `infrastructure/cdk/`
+3. Probar con `make infra-synth` para generar templates
+4. Ver cambios con `make infra-diff`
+5. Crear PR con descripción detallada
+6. Aplicar después de revisión vía GitHub Actions
 
 ---
 
 ## 📝 Changelog
 
+### v2.0.0 (2024)
+- ✅ Migración de Terraform a AWS CDK (Go)
+- ✅ Integración con Firebase Cloud Messaging
+- ✅ GitHub Actions para CI/CD automatizado
+- ✅ Soporte para Firebase credentials en Secrets Manager
+
 ### v1.0.0 (2024)
 - ✅ Arquitectura inicial con VPC, RDS, Elastic Beanstalk
-- ✅ Terraform modular con 3 módulos reutilizables
 - ✅ Optimización para AWS Free Tier
 - ✅ Integración con Secrets Manager
 - ✅ CloudWatch Logs y métricas

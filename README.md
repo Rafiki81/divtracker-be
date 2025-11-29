@@ -651,11 +651,11 @@ make db-migrate        # Aplicar migraciones
 make clean             # Limpiar builds
 make format            # Formatear código
 
-# AWS
-make infra-init        # Inicializar Terraform
-make infra-plan        # Ver plan de infraestructura
-make infra-apply       # Aplicar infraestructura
-make deploy-prod       # Deploy a producción
+# AWS CDK
+make infra-deps        # Instalar dependencias Go para CDK
+make infra-synth       # Generar templates CloudFormation
+make infra-diff        # Ver diferencias con stack actual
+make infra-deploy      # Desplegar infraestructura (manual)
 make logs-prod         # Ver logs de producción
 make infra-destroy     # Destruir infraestructura
 ```
