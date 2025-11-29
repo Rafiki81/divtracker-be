@@ -47,7 +47,7 @@ public class WatchlistItemResponse {
     @Schema(description = "Variación porcentual diaria", example = "1.25")
     private BigDecimal dailyChangePercent;
 
-    @Schema(description = "Capitalización de mercado (millones)", example = "2850000")
+    @Schema(description = "Capitalización de mercado en USD", example = "2850000000000")
     private BigDecimal marketCapitalization;
 
     @Schema(description = "Máximo de 52 semanas", example = "199.62")
@@ -56,7 +56,7 @@ public class WatchlistItemResponse {
     @Schema(description = "Mínimo de 52 semanas", example = "124.17")
     private BigDecimal weekLow52;
 
-    @Schema(description = "Posición en el rango de 52 semanas (0-1)", example = "0.65")
+    @Schema(description = "Posición en rango 52 semanas (0=mínimo, 1=máximo). <0.3 potencialmente infravalorado", example = "0.65")
     private BigDecimal weekRange52Position;
 
     @Schema(description = "FCF por acción reportado", example = "11.45")
@@ -71,7 +71,7 @@ public class WatchlistItemResponse {
     @Schema(description = "PER Anual", example = "25.4")
     private BigDecimal peAnnual;
 
-    @Schema(description = "Rentabilidad por dividendo (Yield)", example = "3.50")
+    @Schema(description = "Rentabilidad por dividendo anual (%)", example = "3.50")
     private BigDecimal dividendYield;
 
     @Schema(description = "Crecimiento del dividendo a 5 años (%)", example = "8.50")
@@ -80,10 +80,10 @@ public class WatchlistItemResponse {
     @Schema(description = "Cobertura del dividendo (FCF/Dividendo). >1.5 es saludable", example = "2.15")
     private BigDecimal dividendCoverageRatio;
 
-    @Schema(description = "Payout Ratio sobre FCF (más fiable que sobre EPS)", example = "0.45")
+    @Schema(description = "Payout Ratio sobre FCF como ratio (0.45 = 45%). <0.70 es sostenible", example = "0.45")
     private BigDecimal payoutRatioFcf;
 
-    @Schema(description = "Valor de la Regla de Chowder (Yield + Crecimiento)", example = "12.50")
+    @Schema(description = "Regla de Chowder = Yield% + DGR5Y%. ≥12 es buena oportunidad", example = "12.50")
     private BigDecimal chowderRuleValue;
 
     @Schema(description = "P/FCF actual calculado", example = "15.03")
@@ -98,7 +98,7 @@ public class WatchlistItemResponse {
     @Schema(description = "Desviación porcentual respecto al precio objetivo manual", example = "-0.05")
     private BigDecimal deviationFromTargetPrice;
 
-    @Schema(description = "Indica si la acción cotiza por debajo del precio justo calculado")
+    @Schema(description = "Indica si la acción cotiza por debajo del DCF (Golden Rule: Precio < DCF)", example = "true")
     private Boolean undervalued;
 
     // Parámetros de valoración configurables
@@ -130,9 +130,9 @@ public class WatchlistItemResponse {
     @Schema(description = "TIR estimada (porcentaje)", example = "12.50")
     private BigDecimal estimatedIRR;
     
-    @Schema(description = "Fecha de creación del item")
+    @Schema(description = "Fecha de creación del item", example = "2024-11-22T10:30:00")
     private LocalDateTime createdAt;
     
-    @Schema(description = "Fecha de última actualización del item")
+    @Schema(description = "Fecha de última actualización del item", example = "2024-11-22T15:45:00")
     private LocalDateTime updatedAt;
 }
