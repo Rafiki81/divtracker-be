@@ -40,8 +40,13 @@ DivTracker es una aplicación backend REST API para análisis financiero avanzad
   - Posición en rango 52 semanas (0-1)
   - Cambio diario porcentual
 - 🔔 **Webhooks de Finnhub** para actualizaciones en tiempo real de precios
+- 📱 **Push Notifications** con Firebase Cloud Messaging (FCM)
+  - Alertas de precio objetivo (PRICE_ALERT)
+  - Alertas de margen de seguridad (MARGIN_ALERT)
+  - Actualizaciones de precio (PRICE_UPDATE)
+  - Resumen diario programado (DAILY_SUMMARY)
 - 🛠️ **Herramientas de Administración** para gestión manual de datos y limpieza
-- 🗄️ **PostgreSQL** con migraciones Flyway (V1-V11: Schema optimizado + Métricas avanzadas)
+- 🗄️ **PostgreSQL** con migraciones Flyway (V1-V12: Schema optimizado + FCM Tokens)
 - 📝 **OpenAPI/Swagger** y **Bruno Collection** para documentación y testing
 - 🐳 **Docker** y **AWS Elastic Beanstalk** ready
 - 🏗️ **AWS CDK (Go)** para infraestructura como código
@@ -54,13 +59,13 @@ DivTracker es una aplicación backend REST API para análisis financiero avanzad
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        Cliente Android                       │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ HTTPS (REST API)
-                       ▼
-          ┌────────────────────────┐
-          │   Spring Boot Backend  │
-          │       (REST API)       │
-          └────────┬───────┬───────┘
+└──────────────────────┬──────────────────┬───────────────────┘
+                       │ HTTPS (REST API)  │ Push Notifications
+                       ▼                   ▼
+          ┌────────────────────────┐   ┌─────────────┐
+          │   Spring Boot Backend  │───│   Firebase  │
+          │       (REST API)       │   │     FCM     │
+          └────────┬───────┬───────┘   └─────────────┘
                    │       │
         ┌──────────┘       └──────────┐
         ▼                              ▼
@@ -100,17 +105,22 @@ divtracker-be/
 │   │   │   ├── controller/          # Controladores REST
 │   │   │   │   ├── AdminController.java
 │   │   │   │   ├── AuthController.java
+│   │   │   │   ├── DeviceController.java       # FCM device registration
 │   │   │   │   ├── FinnhubWebhookController.java
 │   │   │   │   ├── FundamentalsController.java
 │   │   │   │   ├── TickerSearchController.java
 │   │   │   │   └── WatchlistController.java
 │   │   │   ├── dto/                 # Data Transfer Objects
 │   │   │   │   ├── AuthResponse.java
+│   │   │   │   ├── DeviceRegistrationRequest.java  # FCM registration
+│   │   │   │   ├── DeviceResponse.java
 │   │   │   │   ├── LoginRequest.java
+│   │   │   │   ├── PushNotificationDto.java        # FCM notification
 │   │   │   │   ├── WatchlistItemRequest.java
 │   │   │   │   └── WatchlistItemResponse.java
 │   │   │   ├── model/               # Entidades JPA
 │   │   │   │   ├── User.java
+│   │   │   │   ├── UserFcmToken.java             # FCM device tokens
 │   │   │   │   ├── WatchlistItem.java
 │   │   │   │   ├── InstrumentFundamentals.java
 │   │   │   │   └── MarketPriceTick.java
@@ -124,6 +134,7 @@ divtracker-be/
 │   │   │   │   ├── UserRepository.java
 │   │   │   │   └── WatchlistItemRepository.java
 │   │   │   ├── scheduler/           # Tareas programadas
+│   │   │   │   ├── DailySummaryScheduler.java    # FCM daily notifications
 │   │   │   │   └── FundamentalsRefreshScheduler.java
 │   │   │   ├── security/            # JWT, OAuth2
 │   │   │   │   ├── JwtAuthenticationFilter.java
@@ -136,7 +147,10 @@ divtracker-be/
 │   │   │   │   ├── InstrumentFundamentalsService.java
 │   │   │   │   ├── FinnhubWebhookService.java
 │   │   │   │   ├── TickerSearchService.java
-│   │   │   │   └── MarketDataEnrichmentService.java
+│   │   │   │   ├── MarketDataEnrichmentService.java
+│   │   │   │   ├── FcmTokenService.java          # FCM token management
+│   │   │   │   ├── FirebasePushService.java      # Firebase push sending
+│   │   │   │   └── PushNotificationService.java  # Notification logic
 │   │   │   └── DivtrackerBeApplication.java
 │   │   └── resources/
 │   │       ├── application.properties
@@ -150,7 +164,8 @@ divtracker-be/
 │   │           ├── V4__add_valuation_parameters.sql
 │   │           ├── ...
 │   │           ├── V10__add_payout_fcf_and_chowder.sql
-│   │           └── V11__add_market_data_fields.sql
+│   │           ├── V11__add_market_data_fields.sql
+│   │           └── V12__add_fcm_tokens.sql       # FCM device tokens
 │   └── test/
 │       └── java/com/rafiki18/divtracker_be/
 │           ├── controller/           # Tests de integración
@@ -207,6 +222,12 @@ JWT_SECRET=tu_secret_super_seguro
 # Google OAuth (opcional)
 GOOGLE_CLIENT_ID=tu_client_id
 GOOGLE_CLIENT_SECRET=tu_client_secret
+
+# Firebase Cloud Messaging (opcional)
+FCM_ENABLED=true
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/firebase-credentials.json
+# O alternativamente:
+# FIREBASE_CREDENTIALS_JSON={"type":"service_account",...}
 ```
 
 ### 3. Iniciar base de datos
@@ -254,7 +275,7 @@ make test-integration
 ```
 
 ### Resultados actuales
-- ✅ **68 tests pasando**
+- ✅ **138+ tests pasando**
 - 🧪 Tests unitarios de servicios
 - 🔗 Tests de integración de controladores
 - 📊 Tests de métricas financieras
@@ -410,6 +431,37 @@ Authorization: Bearer {token}
 
 # Admin: Limpiar Fundamentals Antiguos (>30 días)
 POST /api/v1/admin/cleanup-old-fundamentals
+Authorization: Bearer {token}
+```
+
+### Push Notifications (FCM)
+
+```bash
+# Registrar dispositivo para push notifications
+POST /api/v1/devices
+Authorization: Bearer {token}
+Content-Type: application/json
+{
+  "fcmToken": "firebase-fcm-token-from-android",
+  "platform": "ANDROID",        # ANDROID | IOS | WEB
+  "deviceId": "unique-device-id"
+}
+
+# Response
+{
+  "id": "uuid-here",
+  "platform": "ANDROID",
+  "deviceId": "unique-device-id",
+  "active": true,
+  "registeredAt": "2024-11-22T10:30:00Z"
+}
+
+# Listar dispositivos del usuario
+GET /api/v1/devices
+Authorization: Bearer {token}
+
+# Eliminar dispositivo
+DELETE /api/v1/devices/{deviceId}
 Authorization: Bearer {token}
 ```
 
@@ -660,10 +712,10 @@ make infra-destroy     # Destruir infraestructura
 - [x] 🔔 Push Notifications con Firebase Cloud Messaging
 - [x] Alertas de precio objetivo (PRICE_ALERT)
 - [x] Alertas de margen de seguridad (MARGIN_ALERT)
+- [x] Resumen diario programado (DAILY_SUMMARY scheduler)
 
 ### 🚧 En desarrollo
 - [ ] Tests E2E completos
-- [ ] Resumen diario programado (DAILY_SUMMARY scheduler)
 - [ ] Notificaciones por email
 
 ### 🔮 Futuro
