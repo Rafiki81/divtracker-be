@@ -1,12 +1,8 @@
 package com.rafiki18.divtracker_be.controller;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -15,9 +11,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.rafiki18.divtracker_be.model.MarketPriceTick;
-import com.rafiki18.divtracker_be.repository.MarketPriceTickRepository;
 import com.rafiki18.divtracker_be.service.FinnhubWebhookService;
+import com.rafiki18.divtracker_be.service.WebhookProcessingService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -38,7 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 public class FinnhubWebhookController {
 
     private final FinnhubWebhookService webhookService;
-    private final MarketPriceTickRepository marketPriceTickRepository;
+    private final WebhookProcessingService webhookProcessingService;
     private final ObjectMapper objectMapper;
 
     @Operation(
@@ -116,73 +111,13 @@ public class FinnhubWebhookController {
             Map<String, Object> payload = objectMapper.readValue(rawPayload, new TypeReference<Map<String, Object>>() {});
             
             // Responder inmediatamente con 200 para evitar timeouts de Finnhub
-            // Procesar el webhook de forma asíncrona
-            processWebhookPayloadAsync(payload);
+            // Procesar el webhook de forma asíncrona (delegado a servicio separado para que @Async funcione)
+            webhookProcessingService.processWebhookPayloadAsync(payload);
             
             return ResponseEntity.ok().build();
         } catch (Exception e) {
             log.error("Error parsing Finnhub webhook payload: {}", e.getMessage(), e);
             return ResponseEntity.status(400).build();
-        }
-    }
-
-    /**
-     * Procesa el webhook de forma asíncrona para responder rápidamente a Finnhub
-     * y evitar timeouts según su documentación.
-     */
-    @Async
-    @SuppressWarnings("unchecked")
-    public void processWebhookPayloadAsync(Map<String, Object> payload) {
-        try {
-            processWebhookPayload(payload);
-            log.info("Finnhub webhook processed successfully");
-        } catch (Exception e) {
-            log.error("Error processing Finnhub webhook asynchronously: {}", e.getMessage(), e);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void processWebhookPayload(Map<String, Object> payload) {
-        String event = (String) payload.get("event");
-        
-        if (!"trade".equals(event)) {
-            log.debug("Ignoring non-trade event: {}", event);
-            return;
-        }
-
-        List<Map<String, Object>> data = (List<Map<String, Object>>) payload.get("data");
-        if (data == null || data.isEmpty()) {
-            log.debug("No trade data in webhook payload");
-            return;
-        }
-
-        for (Map<String, Object> trade : data) {
-            try {
-                MarketPriceTick tick = new MarketPriceTick();
-                
-                String symbol = (String) trade.get("s");
-                Object priceObj = trade.get("p");
-                Object timestampObj = trade.get("t");
-                Object volumeObj = trade.get("v");
-
-                if (symbol == null || priceObj == null || timestampObj == null) {
-                    log.warn("Incomplete trade data: {}", trade);
-                    continue;
-                }
-
-                tick.setTicker(symbol.toUpperCase());
-                tick.setPrice(new BigDecimal(priceObj.toString()));
-                tick.setVolume(volumeObj != null ? new BigDecimal(volumeObj.toString()) : null);
-                tick.setTradeTimestamp(Instant.ofEpochMilli(Long.parseLong(timestampObj.toString())));
-                tick.setSource("FINNHUB_WEBHOOK");
-                tick.setReceivedAt(Instant.now());
-
-                marketPriceTickRepository.save(tick);
-                log.debug("Saved price tick for {}: ${}", symbol, tick.getPrice());
-                
-            } catch (Exception e) {
-                log.error("Error processing trade data: {}", trade, e);
-            }
         }
     }
 }
