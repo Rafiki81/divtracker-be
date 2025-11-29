@@ -270,15 +270,32 @@ make test-unit
 make test-integration
 
 # Ver cobertura
-./mvnw test jacoco:report
+./mvnw clean test
 # Reporte en: target/site/jacoco/index.html
 ```
 
 ### Resultados actuales
-- ✅ **138+ tests pasando**
+- ✅ **253+ tests pasando**
+- 📊 **Cobertura total: 61%** (instrucciones), **52%** (ramas)
 - 🧪 Tests unitarios de servicios
 - 🔗 Tests de integración de controladores
-- 📊 Tests de métricas financieras
+- 📈 Tests de métricas financieras
+- 🌐 Tests de FinnhubClient con mocking de WebClient
+
+### Cobertura por paquete
+
+| Paquete | Instrucciones | Ramas |
+|---------|--------------|-------|
+| scheduler | 90% | 100% |
+| controller | 84% | 71% |
+| mapper | 81% | 57% |
+| model | 78% | 30% |
+| marketdata | 77% | 83% |
+| exception | 77% | n/a |
+| config | 64% | 7% |
+| config.properties | 60% | 40% |
+| security | 59% | 50% |
+| service | 51% | 48% |
 
 ---
 
@@ -695,6 +712,7 @@ make infra-destroy     # Destruir infraestructura
 - **Mockito** - Mocking
 - **AssertJ** - Aserciones fluidas
 - **TestRestTemplate** - Tests de integración
+- **JaCoCo** - Cobertura de código
 
 ---
 
@@ -706,7 +724,7 @@ make infra-destroy     # Destruir infraestructura
 - [x] Integración con Finnhub API
 - [x] Métricas financieras avanzadas (DCF, TIR, Chowder Rule, etc.)
 - [x] Webhooks para actualizaciones de precios en tiempo real
-- [x] Tests unitarios y de integración (138+ tests)
+- [x] Tests unitarios y de integración (253+ tests, 61% cobertura)
 - [x] Infraestructura AWS con CDK (Go)
 - [x] CI/CD con GitHub Actions
 - [x] 🔔 Push Notifications con Firebase Cloud Messaging
