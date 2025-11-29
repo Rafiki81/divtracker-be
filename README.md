@@ -53,13 +53,13 @@ DivTracker es una aplicación backend REST API para análisis financiero avanzad
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        Cliente Web/Mobile                    │
+│                        Cliente Android                       │
 └──────────────────────┬──────────────────────────────────────┘
-                       │ HTTPS/WSS
+                       │ HTTPS (REST API)
                        ▼
           ┌────────────────────────┐
           │   Spring Boot Backend  │
-          │   (REST API + WebSocket)│
+          │       (REST API)       │
           └────────┬───────┬───────┘
                    │       │
         ┌──────────┘       └──────────┐
@@ -68,6 +68,13 @@ DivTracker es una aplicación backend REST API para análisis financiero avanzad
 │  PostgreSQL   │            │  Finnhub API     │
 │  (Datos)      │            │  (Market Data)   │
 └───────────────┘            └──────────────────┘
+                                     │
+                                     │ Webhooks
+                                     ▼
+                          ┌──────────────────┐
+                          │  /api/webhooks/  │
+                          │    finnhub       │
+                          └──────────────────┘
 ```
 
 ---
@@ -89,7 +96,7 @@ divtracker-be/
 ├── src/
 │   ├── main/
 │   │   ├── java/com/rafiki18/divtracker_be/
-│   │   │   ├── config/              # Configuración (Security, WebSocket, CORS)
+│   │   │   ├── config/              # Configuración (Security, CORS)
 │   │   │   ├── controller/          # Controladores REST
 │   │   │   │   ├── AuthController.java
 │   │   │   │   └── WatchlistController.java
@@ -396,39 +403,6 @@ Authorization: Bearer {token}
 # Admin: Limpiar Fundamentals Antiguos (>30 días)
 POST /api/v1/admin/cleanup-old-fundamentals
 Authorization: Bearer {token}
-```
-
----
-
-## 💡 Métricas Financieras
-```
-
-### WebSocket
-```
-
-### WebSocket
-
-```javascript
-// Conectar con JWT
-const socket = new SockJS('http://localhost:8080/ws/market-data');
-const stompClient = Stomp.over(socket);
-
-stompClient.connect(
-  { Authorization: `Bearer ${token}` },
-  () => {
-    // Suscribirse a actualizaciones
-    stompClient.subscribe('/user/queue/market-data', (message) => {
-      const data = JSON.parse(message.body);
-      console.log('Market update:', data);
-    });
-
-    // Solicitar suscripción a tickers
-    stompClient.send('/app/market-data/subscribe', {}, JSON.stringify({
-      action: 'subscribe',
-      tickers: ['AAPL', 'MSFT']
-    }));
-  }
-);
 ```
 
 ---
