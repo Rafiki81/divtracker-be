@@ -240,6 +240,17 @@ Configura los siguientes secrets en tu repositorio de GitHub (Settings → Secre
 - `FINNHUB_WEBHOOK_SECRET` - Secret para verificar webhooks (generar aleatorio)
 - `JWT_SECRET` - Secret para firmar tokens JWT (64+ caracteres aleatorios)
 
+**Firebase Cloud Messaging (FCM) - Opcionales:**
+- `FIREBASE_CREDENTIALS_JSON` - Service Account JSON de Firebase (base64 encoded)
+- `FIREBASE_PROJECT_ID` - ID del proyecto en Firebase Console
+
+> 📱 **Nota Firebase**: Para habilitar push notifications a Android:
+> 1. Ir a [Firebase Console](https://console.firebase.google.com)
+> 2. Crear proyecto o seleccionar existente
+> 3. Configuración del proyecto → Cuentas de servicio → Generar nueva clave privada
+> 4. Codificar el JSON en base64: `cat firebase-key.json | base64 -w0`
+> 5. Guardar como `FIREBASE_CREDENTIALS_JSON`
+
 **Opcionales (OAuth2 Google):**
 - `GOOGLE_CLIENT_ID` - Client ID de [console.cloud.google.com](https://console.cloud.google.com)
 - `GOOGLE_CLIENT_SECRET` - Client Secret de Google OAuth

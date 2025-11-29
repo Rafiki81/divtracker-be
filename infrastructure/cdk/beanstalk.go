@@ -14,18 +14,20 @@ import (
 )
 
 type ElasticBeanstalkConstructProps struct {
-	Vpc                  awsec2.Vpc
-	PublicSubnets        *[]awsec2.ISubnet
-	SecurityGroup        awsec2.SecurityGroup
-	Database             awsrds.DatabaseInstance
-	DatabaseSecret       awssecretsmanager.ISecret
-	AppSecretsArn        *string
-	DbSecretArn          *string
-	JwtSecret            *string
-	FinnhubApiKey        string
-	FinnhubWebhookSecret string
-	GoogleClientId       string
-	GoogleClientSecret   string
+	Vpc                     awsec2.Vpc
+	PublicSubnets           *[]awsec2.ISubnet
+	SecurityGroup           awsec2.SecurityGroup
+	Database                awsrds.DatabaseInstance
+	DatabaseSecret          awssecretsmanager.ISecret
+	AppSecretsArn           *string
+	DbSecretArn             *string
+	JwtSecret               *string
+	FinnhubApiKey           string
+	FinnhubWebhookSecret    string
+	GoogleClientId          string
+	GoogleClientSecret      string
+	FirebaseCredentialsJson string
+	FirebaseProjectId       string
 }
 
 // Creates EB application and environment with proper IAM roles
@@ -217,6 +219,22 @@ func NewElasticBeanstalkConstruct(scope constructs.Construct, id string, props *
 			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
 			OptionName: jsii.String("DB_SECRET_ARN"),
 			Value:      props.DbSecretArn,
+		},
+		// Firebase Cloud Messaging
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("FIREBASE_CREDENTIALS_JSON"),
+			Value:      jsii.String(props.FirebaseCredentialsJson),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("FIREBASE_PROJECT_ID"),
+			Value:      jsii.String(props.FirebaseProjectId),
+		},
+		&awselasticbeanstalk.CfnEnvironment_OptionSettingProperty{
+			Namespace:  jsii.String("aws:elasticbeanstalk:application:environment"),
+			OptionName: jsii.String("FCM_ENABLED"),
+			Value:      jsii.String(func() string { if props.FirebaseCredentialsJson != "" { return "true" }; return "false" }()),
 		},
 	}
 

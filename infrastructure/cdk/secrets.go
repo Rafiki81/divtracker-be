@@ -15,12 +15,14 @@ type SecretsConstructProps struct {
 }
 
 type SecretsConstruct struct {
-	AppSecretsArn        *string
-	JwtSecret            *string
-	FinnhubApiKey        string
-	FinnhubWebhookSecret string
-	GoogleClientId       string
-	GoogleClientSecret   string
+	AppSecretsArn           *string
+	JwtSecret               *string
+	FinnhubApiKey           string
+	FinnhubWebhookSecret    string
+	GoogleClientId          string
+	GoogleClientSecret      string
+	FirebaseCredentialsJson string
+	FirebaseProjectId       string
 }
 
 // Manages application secrets in AWS Secrets Manager
@@ -49,6 +51,19 @@ func NewSecretsConstruct(scope constructs.Construct, id string, props *SecretsCo
 		googleClientSecret = ""
 	}
 
+	// Firebase Cloud Messaging credentials
+	firebaseCredentialsJson := os.Getenv("FIREBASE_CREDENTIALS_JSON")
+	if firebaseCredentialsJson == "" {
+		firebaseCredentialsJson = ""
+		fmt.Println("ℹ️  INFO: FIREBASE_CREDENTIALS_JSON not set. FCM will be disabled.")
+	}
+
+	firebaseProjectId := os.Getenv("FIREBASE_PROJECT_ID")
+	if firebaseProjectId == "" {
+		firebaseProjectId = ""
+		fmt.Println("ℹ️  INFO: FIREBASE_PROJECT_ID not set. FCM will be disabled.")
+	}
+
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		// Generate a random JWT secret
@@ -62,6 +77,8 @@ func NewSecretsConstruct(scope constructs.Construct, id string, props *SecretsCo
 		"FINNHUB_WEBHOOK_SECRET": "%s",
 		"GOOGLE_CLIENT_ID": "%s",
 		"GOOGLE_CLIENT_SECRET": "%s",
+		"FIREBASE_CREDENTIALS_JSON": "%s",
+		"FIREBASE_PROJECT_ID": "%s",
 		"DB_SECRET_ARN": "%s"
 	}`,
 		jwtSecret,
@@ -69,6 +86,8 @@ func NewSecretsConstruct(scope constructs.Construct, id string, props *SecretsCo
 		finnhubWebhookSecret,
 		googleClientId,
 		googleClientSecret,
+		firebaseCredentialsJson,
+		firebaseProjectId,
 		*props.DatabaseSecret.SecretArn(),
 	)
 
@@ -80,11 +99,13 @@ func NewSecretsConstruct(scope constructs.Construct, id string, props *SecretsCo
 	})
 
 	return &SecretsConstruct{
-		AppSecretsArn:        appSecrets.SecretArn(),
-		JwtSecret:            appSecrets.SecretValueFromJson(jsii.String("JWT_SECRET")).UnsafeUnwrap(),
-		FinnhubApiKey:        finnhubApiKey,
-		FinnhubWebhookSecret: finnhubWebhookSecret,
-		GoogleClientId:       googleClientId,
-		GoogleClientSecret:   googleClientSecret,
+		AppSecretsArn:           appSecrets.SecretArn(),
+		JwtSecret:               appSecrets.SecretValueFromJson(jsii.String("JWT_SECRET")).UnsafeUnwrap(),
+		FinnhubApiKey:           finnhubApiKey,
+		FinnhubWebhookSecret:    finnhubWebhookSecret,
+		GoogleClientId:          googleClientId,
+		GoogleClientSecret:      googleClientSecret,
+		FirebaseCredentialsJson: firebaseCredentialsJson,
+		FirebaseProjectId:       firebaseProjectId,
 	}
 }
