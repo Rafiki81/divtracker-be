@@ -139,8 +139,11 @@ class FinnhubWebhookControllerIntegrationTest {
     class TradeProcessingTests {
 
         @Test
-        @DisplayName("Should save single trade to market_price_ticks")
+        @DisplayName("Should save single trade to market_price_ticks when fundamentals exist")
         void shouldSaveSingleTrade() throws Exception {
+            // Create fundamentals so the tick gets saved
+            createFundamentalsForTicker("AAPL");
+            
             String payload = createTradePayload("AAPL", 172.15, 1732285432000L, 1000);
 
             mockMvc.perform(post(WEBHOOK_ENDPOINT)
@@ -165,8 +168,13 @@ class FinnhubWebhookControllerIntegrationTest {
         }
 
         @Test
-        @DisplayName("Should save multiple trades from single webhook")
+        @DisplayName("Should save multiple trades from single webhook when fundamentals exist")
         void shouldSaveMultipleTrades() throws Exception {
+            // Create fundamentals for all tickers
+            createFundamentalsForTicker("AAPL");
+            createFundamentalsForTicker("MSFT");
+            createFundamentalsForTicker("GOOGL");
+            
             String payload = """
                 {
                   "event": "trade",
@@ -194,8 +202,44 @@ class FinnhubWebhookControllerIntegrationTest {
         }
 
         @Test
+        @DisplayName("Should only save trades for tickers with fundamentals")
+        void shouldOnlySaveTradesForTrackedTickers() throws Exception {
+            // Only create fundamentals for AAPL
+            createFundamentalsForTicker("AAPL");
+            
+            String payload = """
+                {
+                  "event": "trade",
+                  "data": [
+                    {"s": "AAPL", "p": 172.15, "t": 1732285432000, "v": 1000},
+                    {"s": "MSFT", "p": 378.50, "t": 1732285433000, "v": 500},
+                    {"s": "GOOGL", "p": 140.25, "t": 1732285434000, "v": 750}
+                  ]
+                }
+                """;
+
+            mockMvc.perform(post(WEBHOOK_ENDPOINT)
+                    .header(SECRET_HEADER, webhookSecret)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(payload))
+                    .andExpect(status().isOk());
+
+            // Give async processing time to complete
+            Thread.sleep(100);
+
+            // Only AAPL should be saved
+            List<MarketPriceTick> ticks = marketPriceTickRepository.findAll();
+            assertThat(ticks).hasSize(1);
+            assertThat(ticks.get(0).getTicker()).isEqualTo("AAPL");
+        }
+
+        @Test
         @DisplayName("Should normalize ticker to uppercase")
         void shouldNormalizeTickerToUppercase() throws Exception {
+            // Create fundamentals (uppercase)
+            createFundamentalsForTicker("AAPL");
+            
+            // Send webhook with lowercase ticker
             String payload = createTradePayload("aapl", 172.15, 1732285432000L, 1000);
 
             mockMvc.perform(post(WEBHOOK_ENDPOINT)
@@ -214,6 +258,8 @@ class FinnhubWebhookControllerIntegrationTest {
         @Test
         @DisplayName("Should handle trade without volume")
         void shouldHandleTradeWithoutVolume() throws Exception {
+            createFundamentalsForTicker("AAPL");
+            
             String payload = """
                 {
                   "event": "trade",
@@ -260,6 +306,10 @@ class FinnhubWebhookControllerIntegrationTest {
         @Test
         @DisplayName("Should skip trades with incomplete data")
         void shouldSkipTradesWithIncompleteData() throws Exception {
+            // Create fundamentals for both AAPL and MSFT
+            createFundamentalsForTicker("AAPL");
+            createFundamentalsForTicker("MSFT");
+            
             String payload = """
                 {
                   "event": "trade",
@@ -279,7 +329,7 @@ class FinnhubWebhookControllerIntegrationTest {
 
             Thread.sleep(100);
 
-            // Only the complete MSFT trade should be saved
+            // Only the complete MSFT trade should be saved (AAPL missing price, second missing symbol)
             List<MarketPriceTick> ticks = marketPriceTickRepository.findAll();
             assertThat(ticks).hasSize(1);
             assertThat(ticks.get(0).getTicker()).isEqualTo("MSFT");
@@ -351,9 +401,9 @@ class FinnhubWebhookControllerIntegrationTest {
         }
 
         @Test
-        @DisplayName("Should not fail when fundamentals don't exist for ticker")
-        void shouldNotFailWhenFundamentalsDontExist() throws Exception {
-            // No fundamentals exist for AAPL
+        @DisplayName("Should ignore ticks for untracked tickers (not in fundamentals)")
+        void shouldIgnoreTicksForUntrackedTickers() throws Exception {
+            // No fundamentals exist for AAPL - it's not tracked
             String payload = createTradePayload("AAPL", 172.15, 1732285432000L, 1000);
 
             mockMvc.perform(post(WEBHOOK_ENDPOINT)
@@ -364,9 +414,9 @@ class FinnhubWebhookControllerIntegrationTest {
 
             Thread.sleep(100);
 
-            // Tick should still be saved
-            assertThat(marketPriceTickRepository.findAll()).hasSize(1);
-            // But no fundamentals created
+            // Tick should NOT be saved for untracked ticker
+            assertThat(marketPriceTickRepository.findAll()).isEmpty();
+            // No fundamentals created either
             assertThat(instrumentFundamentalsRepository.findByTickerIgnoreCase("AAPL")).isEmpty();
         }
 
@@ -465,5 +515,19 @@ class FinnhubWebhookControllerIntegrationTest {
               ]
             }
             """, symbol, price, timestamp, volume);
+    }
+
+    /**
+     * Helper method to create instrument fundamentals for a ticker.
+     * This is needed because only tracked tickers (with fundamentals) get price ticks saved.
+     */
+    private void createFundamentalsForTicker(String ticker) {
+        InstrumentFundamentals fundamentals = InstrumentFundamentals.builder()
+                .ticker(ticker)
+                .companyName(ticker + " Company")
+                .currentPrice(new BigDecimal("100.00"))
+                .currency("USD")
+                .build();
+        instrumentFundamentalsRepository.save(fundamentals);
     }
 }

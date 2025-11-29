@@ -2,7 +2,6 @@ package com.rafiki18.divtracker_be.service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -10,7 +9,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.rafiki18.divtracker_be.model.InstrumentFundamentals;
 import com.rafiki18.divtracker_be.model.MarketPriceTick;
 import com.rafiki18.divtracker_be.repository.InstrumentFundamentalsRepository;
 import com.rafiki18.divtracker_be.repository.MarketPriceTickRepository;
@@ -74,6 +72,8 @@ public class WebhookProcessingService {
 
     /**
      * Process a single trade event.
+     * Only processes tickers that exist in our instrument_fundamentals table.
+     * This avoids storing data for tickers we don't track.
      */
     private void processSingleTrade(Map<String, Object> trade) {
         try {
@@ -88,6 +88,14 @@ public class WebhookProcessingService {
             }
 
             String ticker = symbol.toUpperCase();
+            
+            // Only process tickers we track in our database
+            var fundamentalsOpt = instrumentFundamentalsRepository.findByTickerIgnoreCase(ticker);
+            if (fundamentalsOpt.isEmpty()) {
+                log.trace("Ignoring tick for untracked ticker: {}", ticker);
+                return;
+            }
+
             BigDecimal price = new BigDecimal(priceObj.toString());
             BigDecimal volume = volumeObj != null ? new BigDecimal(volumeObj.toString()) : null;
             Instant tradeTimestamp = Instant.ofEpochMilli(Long.parseLong(timestampObj.toString()));
@@ -104,37 +112,24 @@ public class WebhookProcessingService {
             marketPriceTickRepository.save(tick);
             log.debug("Saved price tick for {}: ${}", ticker, price);
 
-            // 2. Update currentPrice in instrument_fundamentals (if exists)
-            updateInstrumentFundamentalsPrice(ticker, price);
+            // 2. Update currentPrice in instrument_fundamentals
+            var fundamentals = fundamentalsOpt.get();
+            BigDecimal oldPrice = fundamentals.getCurrentPrice();
+            fundamentals.setCurrentPrice(price);
+            
+            // Calculate daily change if we have old price
+            if (oldPrice != null && oldPrice.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal change = price.subtract(oldPrice)
+                    .divide(oldPrice, 4, java.math.RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"));
+                fundamentals.setDailyChangePercent(change);
+            }
+            
+            instrumentFundamentalsRepository.save(fundamentals);
+            log.debug("Updated price for {}: {} -> {}", ticker, oldPrice, price);
             
         } catch (Exception e) {
             log.error("Error processing trade data: {}", trade, e);
         }
-    }
-
-    /**
-     * Updates the current price in InstrumentFundamentals if the ticker exists.
-     * This ensures the frontend sees real-time prices from webhooks.
-     */
-    private void updateInstrumentFundamentalsPrice(String ticker, BigDecimal newPrice) {
-        instrumentFundamentalsRepository.findByTickerIgnoreCase(ticker)
-            .ifPresent(fundamentals -> {
-                BigDecimal oldPrice = fundamentals.getCurrentPrice();
-                fundamentals.setCurrentPrice(newPrice);
-                
-                // Calculate daily change if we have old price
-                if (oldPrice != null && oldPrice.compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal change = newPrice.subtract(oldPrice)
-                        .divide(oldPrice, 4, java.math.RoundingMode.HALF_UP)
-                        .multiply(new BigDecimal("100"));
-                    fundamentals.setDailyChangePercent(change);
-                }
-                
-                // Don't update lastUpdatedAt - that's for full data refresh
-                // We only want to track the price update
-                instrumentFundamentalsRepository.save(fundamentals);
-                log.debug("Updated instrument_fundamentals price for {}: {} -> {}", 
-                    ticker, oldPrice, newPrice);
-            });
     }
 }
