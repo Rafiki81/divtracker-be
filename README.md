@@ -98,28 +98,33 @@ divtracker-be/
 │   │   ├── java/com/rafiki18/divtracker_be/
 │   │   │   ├── config/              # Configuración (Security, CORS)
 │   │   │   ├── controller/          # Controladores REST
+│   │   │   │   ├── AdminController.java
 │   │   │   │   ├── AuthController.java
+│   │   │   │   ├── FinnhubWebhookController.java
+│   │   │   │   ├── FundamentalsController.java
+│   │   │   │   ├── TickerSearchController.java
 │   │   │   │   └── WatchlistController.java
 │   │   │   ├── dto/                 # Data Transfer Objects
 │   │   │   │   ├── AuthResponse.java
 │   │   │   │   ├── LoginRequest.java
 │   │   │   │   ├── WatchlistItemRequest.java
 │   │   │   │   └── WatchlistItemResponse.java
-│   │   │   ├── entity/              # Entidades JPA
+│   │   │   ├── model/               # Entidades JPA
 │   │   │   │   ├── User.java
-│   │   │   │   └── WatchlistItem.java
+│   │   │   │   ├── WatchlistItem.java
+│   │   │   │   ├── InstrumentFundamentals.java
+│   │   │   │   └── MarketPriceTick.java
 │   │   │   ├── exception/           # Manejo de excepciones
 │   │   │   │   └── GlobalExceptionHandler.java
 │   │   │   ├── marketdata/          # Integración Finnhub
-│   │   │   │   ├── FinnhubClient.java
-│   │   │   │   └── stream/
-│   │   │   │       ├── FinnhubStreamingClient.java
-│   │   │   │       └── WatchlistTickerSubscriptionService.java
-│   │   │   ├── mapper/              # MapStruct mappers
+│   │   │   │   └── FinnhubClient.java
+│   │   │   ├── mapper/              # Mappers manuales
 │   │   │   │   └── WatchlistMapper.java
 │   │   │   ├── repository/          # Spring Data JPA
 │   │   │   │   ├── UserRepository.java
 │   │   │   │   └── WatchlistItemRepository.java
+│   │   │   ├── scheduler/           # Tareas programadas
+│   │   │   │   └── FundamentalsRefreshScheduler.java
 │   │   │   ├── security/            # JWT, OAuth2
 │   │   │   │   ├── JwtAuthenticationFilter.java
 │   │   │   │   ├── JwtTokenProvider.java
@@ -128,6 +133,9 @@ divtracker-be/
 │   │   │   │   ├── AuthService.java
 │   │   │   │   ├── WatchlistService.java
 │   │   │   │   ├── FinancialMetricsService.java
+│   │   │   │   ├── InstrumentFundamentalsService.java
+│   │   │   │   ├── FinnhubWebhookService.java
+│   │   │   │   ├── TickerSearchService.java
 │   │   │   │   └── MarketDataEnrichmentService.java
 │   │   │   └── DivtrackerBeApplication.java
 │   │   └── resources/
