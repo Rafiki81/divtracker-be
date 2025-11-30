@@ -62,3 +62,5 @@ logs/
 
 ### GitHub Actions ###
 .github/workflows/*.local.yml
+# Firebase credentials
+.github/*.json
