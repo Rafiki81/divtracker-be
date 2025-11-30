@@ -2,28 +2,29 @@
 
 Este documento describe todos los campos expuestos por el backend de DivTracker para sincronizar la app Android.
 
-## 📋 Resumen de Cambios Recientes
+> **Última actualización**: 30 de noviembre de 2025
 
-Se han añadido nuevas métricas financieras enfocadas en inversión por dividendos:
+## 📋 Estado del Backend
 
-### Nuevos Campos de Mercado
-- `dailyChangePercent` - Variación diaria %
-- `marketCapitalization` - Capitalización de mercado
-- `weekHigh52` / `weekLow52` - Rango 52 semanas
-- `weekRange52Position` - Posición en el rango (0-1)
-
-### Nuevas Métricas de Dividendos
-- `dividendGrowthRate5Y` - Crecimiento del dividendo a 5 años
-- `dividendCoverageRatio` - Cobertura del dividendo (FCF/Dividend)
-- `payoutRatioFcf` - Payout Ratio basado en FCF
-- `chowderRuleValue` - Regla de Chowder (Yield + Growth)
+### ✅ Implementado y Listo
+- API REST completa para watchlist con métricas de dividendos
+- Firebase Cloud Messaging (FCM) para push notifications
+- Autenticación JWT
+- Endpoints de dispositivos para FCM
 
 ### 🔥 Firebase Cloud Messaging (FCM)
-- Push notifications en tiempo real
-- Actualizaciones de precios silenciosas (data-only)
-- Alertas de precio objetivo alcanzado
-- Alertas de margen de seguridad
-- Resumen diario de watchlist
+| Tipo | Estado Backend | Comportamiento |
+|------|----------------|----------------|
+| `PRICE_UPDATE` | ✅ Implementado | **Silenciosa** (data-only) - Solo datos, sin notificación visible |
+| `PRICE_ALERT` | ✅ Implementado | **Visible** - Cuando precio alcanza `targetPrice` |
+| `MARGIN_ALERT` | ✅ Implementado | **Visible** - Margen de seguridad alto |
+| `DAILY_SUMMARY` | ✅ Implementado | **Visible** - Cron 22:00 CET días laborables |
+
+### Campos Disponibles
+- **Mercado**: `currentPrice`, `dailyChangePercent`, `marketCapitalization`, `weekHigh52`, `weekLow52`, `weekRange52Position`
+- **Dividendos**: `dividendYield`, `dividendGrowthRate5Y`, `dividendCoverageRatio`, `payoutRatioFcf`, `chowderRuleValue`
+- **FCF**: `freeCashFlowPerShare`, `actualPfcf`, `fcfYield`, `focfCagr5Y`
+- **Valoración**: `dcfFairValue`, `fairPriceByPfcf`, `marginOfSafety`, `undervalued`
 
 ---
 
@@ -45,14 +46,72 @@ Se han añadido nuevas métricas financieras enfocadas en inversión por dividen
                           └─────────────────┘       └─────────────────┘
 ```
 
-### Tipos de Notificaciones
+### Payloads de Notificaciones (lo que envía el Backend)
 
-| Tipo | Descripción | Comportamiento |
-|------|-------------|----------------|
-| `PRICE_UPDATE` | Actualización de precio | **Silenciosa** (data-only) - Actualiza UI sin mostrar notificación |
-| `PRICE_ALERT` | Precio objetivo alcanzado | **Visible** - Muestra notificación al usuario |
-| `MARGIN_ALERT` | Margen de seguridad alcanzado | **Visible** - Muestra notificación al usuario |
-| `DAILY_SUMMARY` | Resumen diario de watchlist | **Visible** - Una vez al día |
+#### PRICE_UPDATE (Silenciosa - Data Only)
+```json
+{
+  "data": {
+    "type": "PRICE_UPDATE",
+    "ticker": "AAPL",
+    "price": "189.50",
+    "changePercent": "2.35",
+    "timestamp": "1701234567890"
+  }
+}
+```
+> ⚠️ **NO tiene campo `notification`** - Android debe actualizar datos locales sin mostrar notificación.
+
+#### PRICE_ALERT (Visible)
+```json
+{
+  "notification": {
+    "title": "🎯 Alerta de Precio: AAPL",
+    "body": "AAPL ha alcanzado tu precio objetivo ($150.00 → $148.50)"
+  },
+  "data": {
+    "type": "PRICE_ALERT",
+    "ticker": "AAPL",
+    "currentPrice": "148.50",
+    "targetPrice": "150.00",
+    "timestamp": "1701234567890"
+  }
+}
+```
+
+#### MARGIN_ALERT (Visible)
+```json
+{
+  "notification": {
+    "title": "📈 Oportunidad: AAPL",
+    "body": "AAPL tiene un margen de seguridad del 25.5% - ¡Posible oportunidad de compra!"
+  },
+  "data": {
+    "type": "MARGIN_ALERT",
+    "ticker": "AAPL",
+    "marginOfSafety": "25.5",
+    "currentPrice": "148.50",
+    "timestamp": "1701234567890"
+  }
+}
+```
+
+#### DAILY_SUMMARY (Visible)
+```json
+{
+  "notification": {
+    "title": "📊 Resumen Diario - DivTracker",
+    "body": "Tu watchlist (15 acciones): 📈 8 subiendo, 7 bajando"
+  },
+  "data": {
+    "type": "DAILY_SUMMARY",
+    "tickerCount": "15",
+    "gainersCount": "8",
+    "losersCount": "7",
+    "timestamp": "1701234567890"
+  }
+}
+```
 
 ---
 
@@ -77,24 +136,52 @@ dependencies {
 
 Descarga el archivo `google-services.json` desde Firebase Console y colócalo en `app/`.
 
-### 3. FirebaseMessagingService
+### 3. AndroidManifest.xml
+
+```xml
+<service
+    android:name=".fcm.DivTrackerMessagingService"
+    android:exported="false">
+    <intent-filter>
+        <action android:name="com.google.firebase.MESSAGING_EVENT" />
+    </intent-filter>
+</service>
+```
+
+### 4. FirebaseMessagingService - Implementación Completa
 
 ```kotlin
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Intent
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
+import javax.inject.Inject
 
+@AndroidEntryPoint
 class DivTrackerMessagingService : FirebaseMessagingService() {
 
-    private val scope = CoroutineScope(Dispatchers.IO)
+    @Inject
+    lateinit var fcmTokenRepository: FcmTokenRepository
+    
+    @Inject
+    lateinit var watchlistDao: WatchlistDao
+
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        // Enviar token al backend
-        scope.launch {
-            registerTokenWithBackend(token)
+        serviceScope.launch {
+            fcmTokenRepository.registerToken(token)
         }
     }
 
@@ -106,69 +193,79 @@ class DivTrackerMessagingService : FirebaseMessagingService() {
         
         when (type) {
             "PRICE_UPDATE" -> handlePriceUpdate(data)
-            "PRICE_ALERT" -> handlePriceAlert(data)
-            "MARGIN_ALERT" -> handleMarginAlert(data)
-            "DAILY_SUMMARY" -> handleDailySummary(data)
+            "PRICE_ALERT" -> handleVisibleNotification(data, remoteMessage.notification)
+            "MARGIN_ALERT" -> handleVisibleNotification(data, remoteMessage.notification)
+            "DAILY_SUMMARY" -> handleVisibleNotification(data, remoteMessage.notification)
         }
     }
 
+    /**
+     * PRICE_UPDATE: Actualización silenciosa - actualizar Room DB sin mostrar notificación
+     */
     private fun handlePriceUpdate(data: Map<String, String>) {
-        // Actualización silenciosa - solo actualizar datos locales
         val ticker = data["ticker"] ?: return
         val price = data["price"]?.toBigDecimalOrNull() ?: return
-        val dailyChange = data["dailyChangePercent"]?.toBigDecimalOrNull()
+        val changePercent = data["changePercent"]?.toBigDecimalOrNull()
         
-        // Actualizar Room database o StateFlow
-        scope.launch {
-            watchlistRepository.updatePrice(ticker, price, dailyChange)
-        }
-    }
-
-    private fun handlePriceAlert(data: Map<String, String>) {
-        val ticker = data["ticker"] ?: return
-        val price = data["price"] ?: return
-        val targetPrice = data["targetPrice"] ?: return
-        val title = data["title"] ?: "Precio Objetivo Alcanzado"
-        val body = data["body"] ?: "$ticker ha alcanzado \$$price"
-        
-        showNotification(title, body, NotificationChannel.PRICE_ALERTS)
-    }
-
-    private fun handleMarginAlert(data: Map<String, String>) {
-        val ticker = data["ticker"] ?: return
-        val margin = data["marginOfSafety"] ?: return
-        val title = data["title"] ?: "Margen de Seguridad"
-        val body = data["body"] ?: "$ticker tiene un margen de seguridad de $margin%"
-        
-        showNotification(title, body, NotificationChannel.MARGIN_ALERTS)
-    }
-
-    private fun handleDailySummary(data: Map<String, String>) {
-        val title = data["title"] ?: "Resumen Diario"
-        val body = data["body"] ?: "Tu watchlist ha sido actualizada"
-        val itemCount = data["itemCount"]?.toIntOrNull() ?: 0
-        val undervaluedCount = data["undervaluedCount"]?.toIntOrNull() ?: 0
-        
-        showNotification(title, body, NotificationChannel.DAILY_SUMMARY)
-    }
-
-    private suspend fun registerTokenWithBackend(token: String) {
-        try {
-            val deviceId = getDeviceId()
-            val request = DeviceRegistrationRequest(
-                fcmToken = token,
-                deviceId = deviceId,
-                platform = "ANDROID",
-                deviceName = android.os.Build.MODEL
+        serviceScope.launch {
+            // Actualizar precio en la base de datos local
+            watchlistDao.updatePriceByTicker(
+                ticker = ticker,
+                currentPrice = price,
+                dailyChangePercent = changePercent
             )
-            apiService.registerDevice(request)
-        } catch (e: Exception) {
-            // Reintentar más tarde
         }
     }
 
-    private fun showNotification(title: String, body: String, channel: NotificationChannel) {
-        // Implementar con NotificationCompat.Builder
+    /**
+     * Notificaciones visibles - el sistema las muestra automáticamente si app está en background.
+     * Solo necesitamos manejar si la app está en foreground.
+     */
+    private fun handleVisibleNotification(
+        data: Map<String, String>, 
+        notification: RemoteMessage.Notification?
+    ) {
+        val title = notification?.title ?: data["title"] ?: return
+        val body = notification?.body ?: data["body"] ?: return
+        val type = data["type"] ?: "GENERAL"
+        
+        val channelId = when (type) {
+            "PRICE_ALERT" -> NotificationChannels.PRICE_ALERTS
+            "MARGIN_ALERT" -> NotificationChannels.MARGIN_ALERTS
+            "DAILY_SUMMARY" -> NotificationChannels.DAILY_SUMMARY
+            else -> NotificationChannels.GENERAL
+        }
+        
+        showNotification(title, body, channelId, data)
+    }
+
+    private fun showNotification(
+        title: String, 
+        body: String, 
+        channelId: String,
+        data: Map<String, String>
+    ) {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+            data["ticker"]?.let { putExtra("ticker", it) }
+        }
+        
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, intent, 
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        val notification = NotificationCompat.Builder(this, channelId)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .build()
+
+        val notificationManager = getSystemService(NotificationManager::class.java)
+        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }
 }
 ```
@@ -178,6 +275,12 @@ class DivTrackerMessagingService : FirebaseMessagingService() {
 ## 🔌 API de Registro de Dispositivos
 
 ### Endpoints
+
+| Método | Endpoint | Descripción | Auth |
+|--------|----------|-------------|------|
+| `POST` | `/api/v1/devices/register` | Registrar/actualizar dispositivo | Bearer |
+| `GET` | `/api/v1/devices` | Listar dispositivos del usuario | Bearer |
+| `DELETE` | `/api/v1/devices/{deviceId}` | Eliminar dispositivo (logout) | Bearer |
 
 #### Registrar dispositivo
 
@@ -194,7 +297,7 @@ Content-Type: application/json
 }
 ```
 
-**Response:**
+**Response (200 OK):**
 ```json
 {
   "id": "123e4567-e89b-12d3-a456-426614174000",
@@ -202,8 +305,8 @@ Content-Type: application/json
   "platform": "ANDROID",
   "deviceName": "Pixel 8 Pro",
   "isActive": true,
-  "createdAt": "2024-11-29T10:30:00",
-  "lastUsedAt": "2024-11-29T10:30:00"
+  "createdAt": "2024-11-29T10:30:00Z",
+  "lastUsedAt": "2024-11-29T10:30:00Z"
 }
 ```
 
@@ -214,7 +317,7 @@ GET /api/v1/devices
 Authorization: Bearer {token}
 ```
 
-**Response:**
+**Response (200 OK):**
 ```json
 [
   {
@@ -223,18 +326,20 @@ Authorization: Bearer {token}
     "platform": "ANDROID",
     "deviceName": "Pixel 8 Pro",
     "isActive": true,
-    "createdAt": "2024-11-29T10:30:00",
-    "lastUsedAt": "2024-11-29T15:45:00"
+    "createdAt": "2024-11-29T10:30:00Z",
+    "lastUsedAt": "2024-11-29T15:45:00Z"
   }
 ]
 ```
 
-#### Eliminar dispositivo
+#### Eliminar dispositivo (para Logout)
 
 ```http
 DELETE /api/v1/devices/{deviceId}
 Authorization: Bearer {token}
 ```
+
+**Response:** `204 No Content`
 
 ---
 
@@ -244,54 +349,59 @@ Authorization: Bearer {token}
 
 ```kotlin
 data class DeviceRegistrationRequest(
-    val fcmToken: String,
-    val deviceId: String,
+    val fcmToken: String,           // Required, max 500 chars
+    val deviceId: String,           // Required, max 255 chars
     val platform: String = "ANDROID",  // ANDROID, IOS, WEB
-    val deviceName: String? = null
+    val deviceName: String? = null  // Optional, max 255 chars
 )
 ```
 
 ### DeviceResponse
 
 ```kotlin
+import java.time.Instant
+import java.util.UUID
+
 data class DeviceResponse(
     val id: UUID,
     val deviceId: String,
     val platform: String,
     val deviceName: String?,
     val isActive: Boolean,
-    val createdAt: LocalDateTime,
-    val lastUsedAt: LocalDateTime?
+    val createdAt: Instant,     // ISO 8601 format
+    val lastUsedAt: Instant?    // ISO 8601 format
 )
 ```
 
 ### PushNotificationPayload (Data Message)
 
 ```kotlin
-// Estructura del data payload que envía el backend
+/**
+ * Estructura del payload `data` que envía el backend.
+ * Nota: Las notificaciones visibles también incluyen `notification` con title/body.
+ */
 data class PushNotificationPayload(
-    val type: String,           // PRICE_UPDATE, PRICE_ALERT, MARGIN_ALERT, DAILY_SUMMARY
-    val ticker: String?,        // Símbolo del ticker
-    val title: String?,         // Título de la notificación
-    val body: String?,          // Cuerpo de la notificación
+    val type: String,               // PRICE_UPDATE, PRICE_ALERT, MARGIN_ALERT, DAILY_SUMMARY
     
-    // Para PRICE_UPDATE y PRICE_ALERT
-    val price: String?,         // Precio actual como String
-    val targetPrice: String?,   // Precio objetivo
-    val dailyChangePercent: String?,
+    // Para PRICE_UPDATE (campos que envía el backend)
+    val ticker: String?,            // Símbolo del ticker
+    val price: String?,             // Precio actual como String
+    val changePercent: String?,     // Variación % (solo en PRICE_UPDATE)
+    
+    // Para PRICE_ALERT
+    val currentPrice: String?,      // Precio actual
+    val targetPrice: String?,       // Precio objetivo del usuario
     
     // Para MARGIN_ALERT
-    val marginOfSafety: String?,
-    val dcfFairValue: String?,
+    val marginOfSafety: String?,    // Margen de seguridad %
     
     // Para DAILY_SUMMARY
-    val itemCount: String?,
-    val undervaluedCount: String?,
-    val totalGainers: String?,
-    val totalLosers: String?,
+    val tickerCount: String?,       // Total de tickers en watchlist
+    val gainersCount: String?,      // Cantidad subiendo
+    val losersCount: String?,       // Cantidad bajando
     
-    // Metadata
-    val timestamp: String?      // ISO 8601
+    // Metadata (todos los tipos)
+    val timestamp: String?          // Unix timestamp en milisegundos
 )
 ```
 
@@ -299,17 +409,34 @@ data class PushNotificationPayload(
 
 ## 🔧 Implementación Completa Android
 
-### 1. Repository para gestión de tokens
+### 1. FcmTokenRepository - Gestión de Tokens
 
 ```kotlin
-class FcmTokenRepository(
+import android.content.SharedPreferences
+import android.os.Build
+import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
+
+@Singleton
+class FcmTokenRepository @Inject constructor(
     private val apiService: DivTrackerApiService,
-    private val preferences: SharedPreferences
+    private val preferences: SharedPreferences,
+    private val authRepository: AuthRepository  // Para obtener el JWT token
 ) {
-    private val KEY_FCM_TOKEN = "fcm_token"
-    private val KEY_DEVICE_ID = "device_id"
+    companion object {
+        private const val KEY_FCM_TOKEN = "fcm_token"
+        private const val KEY_DEVICE_ID = "device_id"
+    }
 
     suspend fun registerToken(token: String): Result<DeviceResponse> {
+        // Solo registrar si el usuario está autenticado
+        if (!authRepository.isLoggedIn()) {
+            // Guardar token localmente para registrar después del login
+            preferences.edit().putString(KEY_FCM_TOKEN, token).apply()
+            return Result.failure(Exception("User not logged in"))
+        }
+        
         return try {
             val deviceId = getOrCreateDeviceId()
             val request = DeviceRegistrationRequest(
@@ -326,6 +453,18 @@ class FcmTokenRepository(
         }
     }
 
+    /**
+     * Llamar después de login exitoso para registrar token pendiente
+     */
+    suspend fun registerPendingToken() {
+        preferences.getString(KEY_FCM_TOKEN, null)?.let { token ->
+            registerToken(token)
+        }
+    }
+
+    /**
+     * Llamar en logout para eliminar el dispositivo del backend
+     */
     suspend fun unregisterCurrentDevice(): Result<Unit> {
         return try {
             val deviceId = preferences.getString(KEY_DEVICE_ID, null)
@@ -337,6 +476,8 @@ class FcmTokenRepository(
             Result.failure(e)
         }
     }
+
+    fun getDeviceId(): String = getOrCreateDeviceId()
 
     private fun getOrCreateDeviceId(): String {
         return preferences.getString(KEY_DEVICE_ID, null) ?: run {
@@ -351,53 +492,84 @@ class FcmTokenRepository(
 ### 2. Notification Channels
 
 ```kotlin
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
+import android.os.Build
+
 object NotificationChannels {
     const val PRICE_ALERTS = "price_alerts"
     const val MARGIN_ALERTS = "margin_alerts"
     const val DAILY_SUMMARY = "daily_summary"
+    const val GENERAL = "general"
 
     fun createChannels(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = context.getSystemService(NotificationManager::class.java)
 
-            // Price Alerts - Alta importancia
-            val priceChannel = NotificationChannel(
-                PRICE_ALERTS,
-                "Alertas de Precio",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Notificaciones cuando un ticker alcanza tu precio objetivo"
-                enableVibration(true)
-            }
-
-            // Margin Alerts - Alta importancia
-            val marginChannel = NotificationChannel(
-                MARGIN_ALERTS,
-                "Alertas de Margen de Seguridad",
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = "Notificaciones cuando un ticker tiene buen margen de seguridad"
-                enableVibration(true)
-            }
-
-            // Daily Summary - Baja importancia
-            val summaryChannel = NotificationChannel(
-                DAILY_SUMMARY,
-                "Resumen Diario",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Resumen diario de tu watchlist"
-            }
-
-            notificationManager.createNotificationChannels(
-                listOf(priceChannel, marginChannel, summaryChannel)
+            val channels = listOf(
+                NotificationChannel(
+                    PRICE_ALERTS,
+                    "Alertas de Precio",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notificaciones cuando un ticker alcanza tu precio objetivo"
+                    enableVibration(true)
+                },
+                NotificationChannel(
+                    MARGIN_ALERTS,
+                    "Alertas de Margen de Seguridad",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Notificaciones de oportunidades de compra"
+                    enableVibration(true)
+                },
+                NotificationChannel(
+                    DAILY_SUMMARY,
+                    "Resumen Diario",
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply {
+                    description = "Resumen diario de tu watchlist"
+                    enableVibration(false)
+                },
+                NotificationChannel(
+                    GENERAL,
+                    "General",
+                    NotificationManager.IMPORTANCE_DEFAULT
+                )
             )
+
+            notificationManager.createNotificationChannels(channels)
         }
     }
 }
 ```
 
-### 3. Retrofit API Service
+### 3. WatchlistDao - Query para actualizar precio
+
+```kotlin
+@Dao
+interface WatchlistDao {
+    
+    @Query("""
+        UPDATE watchlist_items 
+        SET current_price = :currentPrice, 
+            daily_change_percent = :dailyChangePercent,
+            updated_at = :updatedAt
+        WHERE UPPER(ticker) = UPPER(:ticker)
+    """)
+    suspend fun updatePriceByTicker(
+        ticker: String,
+        currentPrice: BigDecimal,
+        dailyChangePercent: BigDecimal?,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+    
+    // ... otros métodos
+}
+```
+
+### 4. Retrofit API Service
 
 ```kotlin
 interface DivTrackerApiService {
@@ -417,34 +589,60 @@ interface DivTrackerApiService {
 }
 ```
 
-### 4. Manejo de actualizaciones silenciosas
+### 5. Flujo de Logout
 
 ```kotlin
-class WatchlistPriceUpdater(
-    private val watchlistDao: WatchlistDao,
-    private val _priceUpdates: MutableSharedFlow<PriceUpdate>
-) {
-    
-    data class PriceUpdate(
-        val ticker: String,
-        val price: BigDecimal,
-        val dailyChangePercent: BigDecimal?,
-        val timestamp: LocalDateTime
-    )
+class AuthViewModel @Inject constructor(
+    private val authRepository: AuthRepository,
+    private val fcmTokenRepository: FcmTokenRepository
+) : ViewModel() {
 
-    suspend fun handlePriceUpdate(data: Map<String, String>) {
-        val ticker = data["ticker"] ?: return
-        val price = data["price"]?.toBigDecimalOrNull() ?: return
-        val dailyChange = data["dailyChangePercent"]?.toBigDecimalOrNull()
-        val timestamp = data["timestamp"]?.let { 
-            LocalDateTime.parse(it) 
-        } ?: LocalDateTime.now()
+    fun logout() {
+        viewModelScope.launch {
+            // 1. Eliminar dispositivo del backend (stop push notifications)
+            fcmTokenRepository.unregisterCurrentDevice()
+            
+            // 2. Limpiar sesión local
+            authRepository.logout()
+            
+            // 3. Navegar a login
+            _navigationEvent.emit(NavigationEvent.GoToLogin)
+        }
+    }
+}
+```
 
-        // Actualizar base de datos local
-        watchlistDao.updatePrice(ticker, price, dailyChange, timestamp)
+### 6. Permisos de Notificación (Android 13+)
 
-        // Emitir para actualizar UI en tiempo real
-        _priceUpdates.emit(PriceUpdate(ticker, price, dailyChange, timestamp))
+```kotlin
+// En tu Activity o Fragment
+private val notificationPermissionLauncher = registerForActivityResult(
+    ActivityResultContracts.RequestPermission()
+) { isGranted ->
+    if (isGranted) {
+        // Permiso concedido, registrar token
+        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+            viewModel.registerFcmToken(token)
+        }
+    }
+}
+
+private fun requestNotificationPermission() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        when {
+            ContextCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) == PackageManager.PERMISSION_GRANTED -> {
+                // Ya tenemos permiso
+            }
+            shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) -> {
+                // Mostrar explicación al usuario
+                showNotificationRationale()
+            }
+            else -> {
+                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
     }
 }
 ```
@@ -456,48 +654,43 @@ class WatchlistPriceUpdater(
 ```kotlin
 @Composable
 fun RealtimeConnectionIndicator(
-    isConnected: Boolean,
-    lastUpdate: LocalDateTime?
+    lastUpdateTime: Long?,  // timestamp en millis
+    modifier: Modifier = Modifier
 ) {
+    val isRecent = lastUpdateTime?.let { 
+        System.currentTimeMillis() - it < 60_000 // menos de 1 minuto
+    } ?: false
+    
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(8.dp)
+        modifier = modifier.padding(8.dp)
     ) {
-        // Punto de estado
         Box(
             modifier = Modifier
                 .size(8.dp)
                 .background(
-                    color = if (isConnected) Color.Green else Color.Red,
+                    color = if (isRecent) Color(0xFF4CAF50) else Color.Gray,
                     shape = CircleShape
                 )
         )
         
         Spacer(modifier = Modifier.width(4.dp))
         
-        // Texto de estado
         Text(
-            text = if (isConnected) {
-                lastUpdate?.let { 
-                    "Actualizado ${formatRelativeTime(it)}" 
-                } ?: "Conectado"
-            } else {
-                "Sin conexión"
-            },
-            style = MaterialTheme.typography.caption,
-            color = if (isConnected) Color.Green else Color.Red
+            text = lastUpdateTime?.let { formatRelativeTime(it) } ?: "Sin datos",
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isRecent) Color(0xFF4CAF50) else Color.Gray
         )
     }
 }
 
-fun formatRelativeTime(dateTime: LocalDateTime): String {
-    val now = LocalDateTime.now()
-    val seconds = ChronoUnit.SECONDS.between(dateTime, now)
-    
+private fun formatRelativeTime(timestamp: Long): String {
+    val seconds = (System.currentTimeMillis() - timestamp) / 1000
     return when {
         seconds < 60 -> "hace ${seconds}s"
         seconds < 3600 -> "hace ${seconds / 60}m"
-        else -> "hace ${seconds / 3600}h"
+        seconds < 86400 -> "hace ${seconds / 3600}h"
+        else -> "hace ${seconds / 86400}d"
     }
 }
 ```
@@ -506,7 +699,7 @@ fun formatRelativeTime(dateTime: LocalDateTime): String {
 
 ## 🔄 WatchlistItemResponse - Modelo Completo
 
-### Kotlin Data Class
+### Kotlin Data Class (actualizada con todos los campos del backend)
 
 ```kotlin
 import java.math.BigDecimal
@@ -525,12 +718,12 @@ data class WatchlistItemResponse(
     
     // === PRECIO Y OBJETIVOS ===
     val currentPrice: BigDecimal?,           // Precio actual de mercado
-    val targetPrice: BigDecimal?,            // Precio objetivo manual
+    val targetPrice: BigDecimal?,            // Precio objetivo manual del usuario
     val targetPfcf: BigDecimal?,             // P/FCF objetivo
     
-    // === DATOS DE MERCADO (NUEVOS) ===
-    val dailyChangePercent: BigDecimal?,     // Variación diaria (%), ej: 1.25 = +1.25%
-    val marketCapitalization: BigDecimal?,   // Market cap en USD (valor completo, no millones)
+    // === DATOS DE MERCADO ===
+    val dailyChangePercent: BigDecimal?,     // Variación diaria %, ej: 1.25 = +1.25%
+    val marketCapitalization: BigDecimal?,   // Market cap en USD (valor completo)
     val weekHigh52: BigDecimal?,             // Máximo 52 semanas
     val weekLow52: BigDecimal?,              // Mínimo 52 semanas
     val weekRange52Position: BigDecimal?,    // Posición 0-1 (0=mínimo, 1=máximo)
@@ -542,8 +735,8 @@ data class WatchlistItemResponse(
     val focfCagr5Y: BigDecimal?,             // CAGR del FCF operativo 5 años (%)
     
     // === MÉTRICAS DE DIVIDENDOS ===
-    val dividendYield: BigDecimal?,          // Yield actual (%), ej: 3.50 = 3.5%
-    val dividendGrowthRate5Y: BigDecimal?,   // Crecimiento 5Y (%), ej: 8.50 = 8.5%
+    val dividendYield: BigDecimal?,          // Yield actual (%), ej: 3.50
+    val dividendGrowthRate5Y: BigDecimal?,   // Crecimiento 5Y (%), ej: 8.50
     val dividendCoverageRatio: BigDecimal?,  // Cobertura = FCF/Dividend, >1.5 es saludable
     val payoutRatioFcf: BigDecimal?,         // Payout como ratio (0.45 = 45%)
     val chowderRuleValue: BigDecimal?,       // Yield% + DGR5Y%, ≥12 es bueno
@@ -560,7 +753,7 @@ data class WatchlistItemResponse(
     val deviationFromTargetPrice: BigDecimal?, // Desviación vs target manual
     val undervalued: Boolean?,               // Precio < DCF (Golden Rule)
     
-    // === PARÁMETROS DE INVERSIÓN ===
+    // === PARÁMETROS DE INVERSIÓN (configurables por usuario) ===
     val estimatedFcfGrowthRate: BigDecimal?, // Tasa crecimiento FCF (decimal: 0.08 = 8%)
     val investmentHorizonYears: Int?,        // Horizonte en años
     val discountRate: BigDecimal?,           // WACC/Tasa descuento (decimal: 0.10 = 10%)
@@ -571,7 +764,7 @@ data class WatchlistItemResponse(
     val paybackPeriod: BigDecimal?,          // Años para recuperar inversión
     
     // === NOTIFICACIONES ===
-    val notifyWhenBelowPrice: Boolean?,
+    val notifyWhenBelowPrice: Boolean?,      // Si enviar PRICE_ALERT cuando precio < targetPrice
     
     // === TIMESTAMPS ===
     val createdAt: LocalDateTime?,
@@ -794,70 +987,94 @@ object ValueFormatter {
 
 ## ✅ Checklist de Implementación Android
 
-### Modelo de Datos
+### 🔥 Firebase Cloud Messaging (PRIORITARIO)
+
+#### Configuración Inicial
+- [ ] Añadir dependencias de Firebase en `build.gradle.kts`
+- [ ] Configurar `google-services.json` desde Firebase Console
+- [ ] Registrar `DivTrackerMessagingService` en `AndroidManifest.xml`
+- [ ] Crear `NotificationChannels` en `Application.onCreate()`
+
+#### Implementación de Servicios
+- [ ] Implementar `DivTrackerMessagingService` con `onNewToken()` y `onMessageReceived()`
+- [ ] Implementar `FcmTokenRepository` para gestión de tokens
+- [ ] **Implementar `handlePriceUpdate()` para actualizar `WatchlistDao`** ← TODO pendiente
+- [ ] Añadir endpoints de dispositivos a Retrofit API Service
+
+#### Permisos y UI
+- [ ] Manejar permisos `POST_NOTIFICATIONS` (Android 13+)
+- [ ] Crear UI `RealtimeConnectionIndicator` para mostrar estado
+
+#### Flujos de Usuario
+- [ ] Registrar token FCM después de login exitoso (`registerPendingToken()`)
+- [ ] **Implementar botón de Logout** que llame a `DELETE /api/v1/devices/{deviceId}` ← TODO pendiente
+- [ ] Implementar lógica de reintento para registro de tokens fallidos
+
+### 📱 Modelo de Datos
 - [ ] Actualizar `WatchlistItemResponse` data class con todos los campos
-- [ ] Añadir campos nullable para compatibilidad
+- [ ] Verificar que Retrofit deserializa todos los campos (nullable)
+- [ ] Añadir `updatePriceByTicker()` en `WatchlistDao`
 
-### Repository/API
-- [ ] Verificar que Retrofit deserializa todos los campos
-- [ ] Manejar campos null gracefully
-
-### UI Components
-- [ ] Crear componente `DividendMetricsCard`
+### 🎨 UI Components
+- [ ] Crear componente `DividendMetricsCard` (o integrar en `WatchlistDetailScreen`)
 - [ ] Crear componente `WeekRangeIndicator` (barra 52 semanas)
 - [ ] Crear componente `ChowderBadge`
 - [ ] Actualizar `WatchlistItemCard` con nuevos datos
 
-### Formatters
+### 🔢 Formatters
 - [ ] Implementar `ValueFormatter` object
 - [ ] Implementar funciones de color según valores
-
-### Pantallas
-- [ ] Actualizar lista de watchlist con indicadores visuales
-- [ ] Actualizar detalle de item con todas las métricas
-- [ ] Añadir sección de "Dividend Analysis"
-
-### 🔥 Firebase Cloud Messaging
-- [ ] Añadir dependencias de Firebase en `build.gradle.kts`
-- [ ] Configurar `google-services.json` desde Firebase Console
-- [ ] Crear `DivTrackerMessagingService` extendiendo `FirebaseMessagingService`
-- [ ] Registrar el servicio en `AndroidManifest.xml`
-- [ ] Crear `NotificationChannels` (price_alerts, margin_alerts, daily_summary)
-- [ ] Implementar `FcmTokenRepository` para gestión de tokens
-- [ ] Añadir endpoints de dispositivos a Retrofit API Service
-- [ ] Implementar `WatchlistPriceUpdater` para actualizaciones silenciosas
-- [ ] Crear UI `RealtimeConnectionIndicator` para mostrar estado de conexión
-- [ ] Manejar permisos de notificaciones (Android 13+)
-- [ ] Implementar lógica de reintento para registro de tokens
 
 ---
 
 ## 📝 Notas Importantes
 
 ### Datos y Formateo
-1. **Todos los campos nuevos son nullable** - El backend puede no tener datos para todas las acciones
+1. **Todos los campos son nullable** - El backend puede no tener datos para todas las acciones
 2. **`payoutRatioFcf` es ratio, no porcentaje** - Multiplicar por 100 para mostrar como %
 3. **`marketCapitalization` es valor completo en USD** - No está en millones
 4. **`weekRange52Position`** se calcula: `(precio - min) / (max - min)`
 5. **`undervalued`** usa la "Golden Rule": `precio < DCF`
 
 ### Firebase Cloud Messaging
-6. **`PRICE_UPDATE` es data-only** - No muestra notificación visible, solo actualiza datos
+6. **`PRICE_UPDATE` es data-only** - NO tiene campo `notification`, solo `data`
 7. **Tokens FCM pueden cambiar** - Siempre manejar `onNewToken()` y re-registrar
-8. **deviceId debe ser único y persistente** - Usar UUID guardado en SharedPreferences
+8. **`deviceId` debe ser único y persistente** - Usar UUID guardado en SharedPreferences
 9. **Notificaciones requieren permiso en Android 13+** - Solicitar `POST_NOTIFICATIONS`
 10. **Las alertas solo se envían para tickers en watchlist** - El backend filtra por usuario
 
+### Timestamps del Backend
+11. **`DeviceResponse.createdAt/lastUsedAt`** son `Instant` (ISO 8601 con Z)
+12. **`WatchlistItemResponse.createdAt/updatedAt`** son `LocalDateTime`
+13. **`timestamp` en notificaciones** es Unix millis como String
+
 ### Canales de Notificación (Android 8+)
-- `price_alerts` - **IMPORTANCE_HIGH** - Alertas de precio objetivo
-- `margin_alerts` - **IMPORTANCE_HIGH** - Alertas de margen de seguridad  
-- `daily_summary` - **IMPORTANCE_LOW** - Resumen diario (sin vibración)
+| Channel ID | Importancia | Descripción |
+|------------|-------------|-------------|
+| `price_alerts` | HIGH | Alertas de precio objetivo - vibración |
+| `margin_alerts` | HIGH | Alertas de margen de seguridad - vibración |
+| `daily_summary` | LOW | Resumen diario - sin vibración |
 
 ### Flujo de Registro de Token
 ```
-App Start → Get FCM Token → POST /api/v1/devices/register → Store locally
-         ↓
-onNewToken() → POST /api/v1/devices/register (update existing)
-         ↓
-Logout → DELETE /api/v1/devices/{deviceId}
+App Start → Check Auth → If logged in → Get FCM Token → POST /api/v1/devices/register
+                       → If not logged in → Store token locally
+                       
+Login Success → Call registerPendingToken() → POST /api/v1/devices/register
+
+onNewToken() → POST /api/v1/devices/register (actualiza el existente)
+
+Logout → DELETE /api/v1/devices/{deviceId} → Clear local session
 ```
+
+### Flujo de PRICE_UPDATE (Silenciosa)
+```
+Finnhub Webhook → Backend procesa → Firebase envía data-only message
+                                            ↓
+Android DivTrackerMessagingService.onMessageReceived()
+                                            ↓
+                        handlePriceUpdate(data) → WatchlistDao.updatePriceByTicker()
+                                            ↓
+                        UI se actualiza automáticamente (Room + Flow)
+```
+
