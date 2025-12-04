@@ -43,6 +43,11 @@ public interface WatchlistItemRepository extends JpaRepository<WatchlistItem, UU
     List<String> findDistinctTickers();
 
     /**
+     * Cuenta cuántos usuarios tienen este ticker en sus watchlists
+     */
+    long countByTickerIgnoreCase(String ticker);
+
+    /**
      * Obtiene el listado de tickers únicos para un usuario específico
      */
     @Query("select distinct upper(w.ticker) from WatchlistItem w where w.userId = :userId")

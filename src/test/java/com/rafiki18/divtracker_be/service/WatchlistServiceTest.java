@@ -22,6 +22,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -48,6 +49,9 @@ class WatchlistServiceTest {
     
     @Mock
     private MarketDataEnrichmentService marketDataEnrichmentService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private WatchlistService service;
@@ -137,6 +141,7 @@ class WatchlistServiceTest {
         when(repository.existsByUserIdAndTickerIgnoreCase(userId, "AAPL")).thenReturn(false);
         when(mapper.toEntity(request, userId)).thenReturn(item);
         when(repository.save(item)).thenReturn(item);
+        when(repository.countByTickerIgnoreCase("AAPL")).thenReturn(1L);
         when(mapper.toResponse(item)).thenReturn(response);
         when(marketDataEnrichmentService.isAvailable()).thenReturn(true);
         when(marketDataEnrichmentService.getFundamentals("AAPL")).thenReturn(fundamentals);
@@ -239,6 +244,8 @@ class WatchlistServiceTest {
     void testDelete_Success() {
         // Arrange
         when(repository.findByUserIdAndId(userId, itemId)).thenReturn(Optional.of(item));
+        when(repository.countByTickerIgnoreCase("AAPL")).thenReturn(0L);
+        
         // Act
         service.delete(userId, itemId);
         

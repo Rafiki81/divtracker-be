@@ -1,0 +1,25 @@
+meta {
+  name: WebSocket Status
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/admin/websocket-status
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+docs {
+  # WebSocket Status
+  
+  Returns the current status of the Finnhub WebSocket connection:
+  - connected: Whether the WebSocket is connected
+  - streamingEnabled: Whether streaming is enabled in configuration
+  - subscribedTickers: Number of tickers subscribed
+  - tickers: List of subscribed tickers
+}

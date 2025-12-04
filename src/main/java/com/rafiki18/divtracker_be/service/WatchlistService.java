@@ -3,6 +3,7 @@ package com.rafiki18.divtracker_be.service;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,8 @@ import com.rafiki18.divtracker_be.dto.WatchlistItemResponse;
 import com.rafiki18.divtracker_be.exception.DuplicateTickerException;
 import com.rafiki18.divtracker_be.exception.WatchlistItemNotFoundException;
 import com.rafiki18.divtracker_be.mapper.WatchlistMapper;
+import com.rafiki18.divtracker_be.marketdata.TickerAddedEvent;
+import com.rafiki18.divtracker_be.marketdata.TickerRemovedEvent;
 import com.rafiki18.divtracker_be.model.WatchlistItem;
 import com.rafiki18.divtracker_be.repository.WatchlistItemRepository;
 
@@ -27,6 +30,7 @@ public class WatchlistService {
     private final WatchlistItemRepository watchlistItemRepository;
     private final WatchlistMapper watchlistMapper;
     private final MarketDataEnrichmentService marketDataEnrichmentService;
+    private final ApplicationEventPublisher eventPublisher;
     
     /**
      * Lista todos los items del watchlist de un usuario con paginación
@@ -153,6 +157,15 @@ public class WatchlistService {
         WatchlistItem savedItem = watchlistItemRepository.save(item);
         
         log.info("Created watchlist item {} for user {}", savedItem.getId(), userId);
+        
+        // Publish event for WebSocket subscription (only if this is the first user tracking this ticker)
+        String ticker = savedItem.getTicker().toUpperCase();
+        long tickerCount = watchlistItemRepository.countByTickerIgnoreCase(ticker);
+        if (tickerCount == 1) {
+            log.info("First watchlist item for ticker {}, publishing TickerAddedEvent", ticker);
+            eventPublisher.publishEvent(new TickerAddedEvent(this, ticker));
+        }
+        
         WatchlistItemResponse response = watchlistMapper.toResponse(savedItem);
         enrichWithMarketData(response);
         log.info("FULL WATCHLIST ITEM RESPONSE for create {}: {}", normalizedTicker, response);
@@ -210,8 +223,17 @@ public class WatchlistService {
                     return new WatchlistItemNotFoundException(userId, id);
                 });
         
+        String ticker = item.getTicker().toUpperCase();
+        
         watchlistItemRepository.delete(item);
         log.info("Deleted watchlist item {} for user {}", id, userId);
+        
+        // Check if no users are tracking this ticker anymore
+        long remainingCount = watchlistItemRepository.countByTickerIgnoreCase(ticker);
+        if (remainingCount == 0) {
+            log.info("No more users tracking ticker {}, publishing TickerRemovedEvent", ticker);
+            eventPublisher.publishEvent(new TickerRemovedEvent(this, ticker));
+        }
     }
     
     /**

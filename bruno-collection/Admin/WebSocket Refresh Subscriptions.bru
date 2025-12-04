@@ -1,0 +1,24 @@
+meta {
+  name: WebSocket Refresh Subscriptions
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/admin/websocket-refresh-subscriptions
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+docs {
+  # WebSocket Refresh Subscriptions
+  
+  Manually refreshes the WebSocket subscriptions based on current watchlist tickers.
+  This will:
+  - Unsubscribe from tickers no longer in any watchlist
+  - Subscribe to new tickers added to watchlists
+}
