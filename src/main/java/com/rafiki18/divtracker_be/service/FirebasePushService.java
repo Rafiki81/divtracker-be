@@ -48,12 +48,20 @@ public class FirebasePushService {
         }
 
         try {
+            log.info("📤 Sending FCM notification: type={}, title='{}', token={}...", 
+                     notification.getType(), 
+                     notification.getTitle(),
+                     fcmToken.substring(0, Math.min(20, fcmToken.length())));
+            
             Message message = buildMessage(fcmToken, notification);
             String response = firebaseMessaging.send(message);
-            log.debug("Successfully sent notification: {}", response);
+            
+            log.info("✅ FCM notification sent successfully: messageId={}", response);
             fcmTokenService.markTokenAsUsed(fcmToken);
             return true;
         } catch (FirebaseMessagingException e) {
+            log.error("❌ FCM notification failed: type={}, error={}", 
+                      notification.getType(), e.getMessage());
             handleFirebaseError(fcmToken, e);
             return false;
         }
@@ -65,8 +73,14 @@ public class FirebasePushService {
      */
     public int sendNotificationToMultiple(List<UserFcmToken> tokens, PushNotificationDto notification) {
         if (!isEnabled() || tokens.isEmpty()) {
+            log.debug("Skipping multicast: enabled={}, tokens={}", isEnabled(), tokens.size());
             return 0;
         }
+
+        log.info("📤 Sending FCM multicast: type={}, recipients={}, data={}",
+                 notification.getType(),
+                 tokens.size(),
+                 notification.getData());
 
         List<String> fcmTokens = tokens.stream()
                 .map(UserFcmToken::getFcmToken)
@@ -117,6 +131,8 @@ public class FirebasePushService {
             
             // Handle failures
             if (response.getFailureCount() > 0) {
+                log.warn("⚠️ FCM batch had {} failures out of {} messages", 
+                         response.getFailureCount(), fcmTokens.size());
                 handleBatchFailures(fcmTokens, response.getResponses());
             }
 
@@ -127,7 +143,7 @@ public class FirebasePushService {
                 }
             }
 
-            log.debug("Batch send: {} success, {} failures", 
+            log.info("✅ FCM batch complete: {} success, {} failures", 
                 response.getSuccessCount(), response.getFailureCount());
             return response.getSuccessCount();
         } catch (FirebaseMessagingException e) {
