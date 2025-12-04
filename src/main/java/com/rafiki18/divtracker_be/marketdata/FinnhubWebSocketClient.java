@@ -60,6 +60,12 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
      * Upgrade to paid plan for unlimited symbols.
      */
     private static final int MAX_SYMBOLS_FREE_PLAN = 50;
+    
+    /**
+     * Minimum interval between push notifications per ticker (in milliseconds).
+     * Prevents spamming users with high-frequency trades.
+     */
+    private static final long NOTIFICATION_THROTTLE_MS = 60_000; // 60 seconds
 
     private final FinnhubProperties properties;
     private final WatchlistItemRepository watchlistItemRepository;
@@ -72,6 +78,7 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
 
     private WebSocketSession session;
     private final Set<String> subscribedTickers = ConcurrentHashMap.newKeySet();
+    private final Map<String, Long> lastNotificationTime = new ConcurrentHashMap<>();
     private final AtomicBoolean isConnecting = new AtomicBoolean(false);
     private final AtomicBoolean shouldReconnect = new AtomicBoolean(true);
     private ScheduledExecutorService reconnectExecutor;
@@ -282,15 +289,35 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
             
             instrumentFundamentalsRepository.save(fundamentals);
 
-            // 3. Send push notifications
-            if (pushNotificationService != null) {
+            // 3. Send push notifications (throttled to avoid spamming)
+            if (pushNotificationService != null && shouldSendNotification(ticker)) {
                 BigDecimal changePercent = fundamentals.getDailyChangePercent();
                 pushNotificationService.sendPriceUpdateNotifications(ticker, price, oldPrice, changePercent);
+                log.debug("Sent push notification for {}", ticker);
             }
             
         } catch (Exception e) {
             log.error("Error processing trade: {}", trade, e);
         }
+    }
+
+    /**
+     * Check if enough time has passed since the last notification for this ticker.
+     * This prevents spamming users with high-frequency trade updates.
+     * 
+     * @param ticker the ticker symbol
+     * @return true if a notification should be sent
+     */
+    private boolean shouldSendNotification(String ticker) {
+        long now = System.currentTimeMillis();
+        Long lastTime = lastNotificationTime.get(ticker);
+        
+        if (lastTime == null || (now - lastTime) >= NOTIFICATION_THROTTLE_MS) {
+            lastNotificationTime.put(ticker, now);
+            return true;
+        }
+        
+        return false;
     }
 
     /**
