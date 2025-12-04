@@ -48,10 +48,18 @@ import lombok.extern.slf4j.Slf4j;
  * - Auto-reconnect on connection loss
  * - Dynamic subscription management (add/remove tickers)
  * - Graceful shutdown
+ * 
+ * IMPORTANT: Free Finnhub plan limits WebSocket to 50 symbols maximum.
  */
 @Component
 @Slf4j
 public class FinnhubWebSocketClient extends TextWebSocketHandler {
+
+    /**
+     * Maximum symbols allowed on Finnhub free plan.
+     * Upgrade to paid plan for unlimited symbols.
+     */
+    private static final int MAX_SYMBOLS_FREE_PLAN = 50;
 
     private final FinnhubProperties properties;
     private final WatchlistItemRepository watchlistItemRepository;
@@ -317,6 +325,14 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
             return;
         }
         
+        // Check free plan limit (50 symbols max)
+        if (subscribedTickers.size() >= MAX_SYMBOLS_FREE_PLAN) {
+            log.warn("Cannot subscribe to {}: reached free plan limit of {} symbols. " +
+                     "Upgrade Finnhub plan for unlimited symbols.", 
+                     normalizedTicker, MAX_SYMBOLS_FREE_PLAN);
+            return;
+        }
+        
         try {
             String subscribeMessage = String.format(
                 "{\"type\":\"subscribe\",\"symbol\":\"%s\"}", 
@@ -325,7 +341,8 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
             
             session.sendMessage(new TextMessage(subscribeMessage));
             subscribedTickers.add(normalizedTicker);
-            log.info("Subscribed to ticker: {}", normalizedTicker);
+            log.info("Subscribed to ticker: {} ({}/{})", 
+                     normalizedTicker, subscribedTickers.size(), MAX_SYMBOLS_FREE_PLAN);
             
         } catch (Exception e) {
             log.error("Error subscribing to {}: {}", normalizedTicker, e.getMessage());
@@ -452,6 +469,8 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
             "connected", isConnected(),
             "streamingEnabled", properties.isStreamingEnabled(),
             "subscribedTickers", subscribedTickers.size(),
+            "maxSymbols", MAX_SYMBOLS_FREE_PLAN,
+            "remainingSlots", MAX_SYMBOLS_FREE_PLAN - subscribedTickers.size(),
             "tickers", List.copyOf(subscribedTickers)
         );
     }
