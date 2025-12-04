@@ -26,6 +26,7 @@ python aws_architecture.py
 python backend_components.py
 python data_flow.py
 python fcm_flow.py
+python entity_relationship.py
 ```
 
 ## Diagramas Disponibles
@@ -36,6 +37,7 @@ python fcm_flow.py
 | `backend_components.py` | Componentes internos del backend Spring Boot |
 | `data_flow.py` | Flujo de datos desde Finnhub hasta Android |
 | `fcm_flow.py` | Flujo de notificaciones push con Firebase |
+| `entity_relationship.py` | Diagrama Entidad-Relación de la base de datos |
 
 ## Salida
 

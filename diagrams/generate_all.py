@@ -14,6 +14,7 @@ def main():
         "backend_components.py", 
         "data_flow.py",
         "fcm_flow.py",
+        "entity_relationship.py",
     ]
     
     print("🎨 Generating DivTracker Architecture Diagrams\n")
