@@ -228,9 +228,14 @@ public class FirebasePushService {
         
         for (int i = 0; i < responses.size(); i++) {
             SendResponse response = responses.get(i);
-            if (!response.isSuccessful() && response.getException() != null) {
-                String errorCode = response.getException().getMessagingErrorCode() != null ?
-                        response.getException().getMessagingErrorCode().name() : "UNKNOWN";
+            if (!response.isSuccessful()) {
+                FirebaseMessagingException ex = response.getException();
+                String errorCode = (ex != null && ex.getMessagingErrorCode() != null) ?
+                        ex.getMessagingErrorCode().name() : "UNKNOWN";
+                String errorMessage = ex != null ? ex.getMessage() : "No error message";
+                String tokenPreview = fcmTokens.get(i).substring(0, Math.min(20, fcmTokens.get(i).length()));
+                
+                log.warn("❌ FCM failure [{}]: token={}..., error={}", errorCode, tokenPreview, errorMessage);
                 
                 if (isInvalidTokenError(errorCode)) {
                     invalidTokens.add(fcmTokens.get(i));
