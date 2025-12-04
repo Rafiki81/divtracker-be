@@ -42,23 +42,15 @@ public class PushNotificationService {
     public void sendPriceUpdateNotifications(String ticker, BigDecimal currentPrice, 
             BigDecimal previousPrice, BigDecimal changePercent) {
         
-        log.info("📱 Processing push notifications for {} - price: ${} -> ${} ({}%)", 
-                 ticker, previousPrice, currentPrice, changePercent);
-        
         List<UserFcmToken> tokens = fcmTokenService.getTokensForTicker(ticker);
         
         if (tokens.isEmpty()) {
-            log.debug("No devices registered for ticker {}", ticker);
             return;
         }
-
-        log.info("📱 Found {} device tokens for ticker {}", tokens.size(), ticker);
 
         // Group tokens by user to check for alerts per user
         Map<UUID, List<UserFcmToken>> tokensByUser = tokens.stream()
                 .collect(Collectors.groupingBy(t -> t.getUser().getId()));
-
-        log.info("📱 Sending to {} unique users", tokensByUser.size());
 
         for (var entry : tokensByUser.entrySet()) {
             UUID userId = entry.getKey();
@@ -87,7 +79,7 @@ public class PushNotificationService {
 
         // Alert when current price falls at or below target price
         if (currentPrice.compareTo(targetPrice) <= 0) {
-            log.info("🎯 PRICE ALERT TRIGGERED: {} reached target! current=${}, target=${}", 
+            log.info("Price alert: {} at ${} (target: ${})", 
                     item.getTicker(), currentPrice, targetPrice);
             
             PushNotificationDto notification = PushNotificationDto.priceAlert(

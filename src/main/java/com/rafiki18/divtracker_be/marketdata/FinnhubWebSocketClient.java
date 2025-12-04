@@ -99,7 +99,6 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
     @Autowired(required = false)
     public void setPushNotificationService(PushNotificationService pushNotificationService) {
         this.pushNotificationService = pushNotificationService;
-        log.info("Push notification service injected into WebSocket client");
     }
 
     /**
@@ -143,7 +142,7 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
 
         try {
             String wsUrl = properties.getWebsocketUrl() + "?token=" + properties.getApiKey();
-            log.info("Connecting to Finnhub WebSocket: {}", properties.getWebsocketUrl());
+            log.debug("Connecting to Finnhub WebSocket");
             
             StandardWebSocketClient client = new StandardWebSocketClient();
             client.execute(this, wsUrl).get(10, TimeUnit.SECONDS);
@@ -159,7 +158,7 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         this.session = session;
         isConnecting.set(false);
-        log.info("Connected to Finnhub WebSocket");
+        log.info("Finnhub WebSocket connected");
         
         // Subscribe to all tickers in watchlists
         subscribeToWatchlistTickers();
@@ -272,7 +271,6 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
             tick.setReceivedAt(Instant.now());
             
             marketPriceTickRepository.save(tick);
-            log.debug("Saved price tick for {}: ${} via WebSocket", ticker, price);
 
             // 2. Update instrument_fundamentals
             var fundamentals = fundamentalsOpt.get();
@@ -293,7 +291,6 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
             if (pushNotificationService != null && shouldSendNotification(ticker)) {
                 BigDecimal changePercent = fundamentals.getDailyChangePercent();
                 pushNotificationService.sendPriceUpdateNotifications(ticker, price, oldPrice, changePercent);
-                log.debug("Sent push notification for {}", ticker);
             }
             
         } catch (Exception e) {
@@ -326,13 +323,13 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
     public void subscribeToWatchlistTickers() {
         try {
             List<String> tickers = watchlistItemRepository.findDistinctTickers();
-            log.info("Found {} distinct tickers in watchlists to subscribe", tickers.size());
+            log.debug("Subscribing to {} watchlist tickers", tickers.size());
             
             for (String ticker : tickers) {
                 subscribe(ticker);
             }
         } catch (Exception e) {
-            log.error("Error subscribing to watchlist tickers: {}", e.getMessage(), e);
+            log.error("Error subscribing to watchlist tickers: {}", e.getMessage());
         }
     }
 
@@ -368,7 +365,7 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
             
             session.sendMessage(new TextMessage(subscribeMessage));
             subscribedTickers.add(normalizedTicker);
-            log.info("Subscribed to ticker: {} ({}/{})", 
+            log.debug("Subscribed: {} ({}/{})", 
                      normalizedTicker, subscribedTickers.size(), MAX_SYMBOLS_FREE_PLAN);
             
         } catch (Exception e) {

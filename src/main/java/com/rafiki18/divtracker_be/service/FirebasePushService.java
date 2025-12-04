@@ -48,20 +48,12 @@ public class FirebasePushService {
         }
 
         try {
-            log.info("📤 Sending FCM notification: type={}, title='{}', token={}...", 
-                     notification.getType(), 
-                     notification.getTitle(),
-                     fcmToken.substring(0, Math.min(20, fcmToken.length())));
-            
             Message message = buildMessage(fcmToken, notification);
-            String response = firebaseMessaging.send(message);
-            
-            log.info("✅ FCM notification sent successfully: messageId={}", response);
+            firebaseMessaging.send(message);
             fcmTokenService.markTokenAsUsed(fcmToken);
             return true;
         } catch (FirebaseMessagingException e) {
-            log.error("❌ FCM notification failed: type={}, error={}", 
-                      notification.getType(), e.getMessage());
+            log.warn("FCM failed: {}", e.getMessage());
             handleFirebaseError(fcmToken, e);
             return false;
         }
@@ -77,10 +69,7 @@ public class FirebasePushService {
             return 0;
         }
 
-        log.info("📤 Sending FCM multicast: type={}, recipients={}, data={}",
-                 notification.getType(),
-                 tokens.size(),
-                 notification.getData());
+        log.debug("FCM multicast: type={}, recipients={}", notification.getType(), tokens.size());
 
         List<String> fcmTokens = tokens.stream()
                 .map(UserFcmToken::getFcmToken)
@@ -129,10 +118,8 @@ public class FirebasePushService {
             MulticastMessage message = buildMulticastMessage(fcmTokens, notification);
             BatchResponse response = firebaseMessaging.sendEachForMulticast(message);
             
-            // Handle failures
+            // Handle failures silently
             if (response.getFailureCount() > 0) {
-                log.warn("⚠️ FCM batch had {} failures out of {} messages", 
-                         response.getFailureCount(), fcmTokens.size());
                 handleBatchFailures(fcmTokens, response.getResponses());
             }
 
@@ -142,9 +129,6 @@ public class FirebasePushService {
                     fcmTokenService.markTokenAsUsed(fcmTokens.get(i));
                 }
             }
-
-            log.info("✅ FCM batch complete: {} success, {} failures", 
-                response.getSuccessCount(), response.getFailureCount());
             return response.getSuccessCount();
         } catch (FirebaseMessagingException e) {
             log.error("Failed to send batch notification: {}", e.getMessage());
@@ -213,13 +197,10 @@ public class FirebasePushService {
     private void handleFirebaseError(String fcmToken, FirebaseMessagingException e) {
         String errorCode = e.getMessagingErrorCode() != null ? 
                 e.getMessagingErrorCode().name() : "UNKNOWN";
-        
-        log.warn("Firebase messaging error for token: {} - {}", errorCode, e.getMessage());
 
-        // Deactivate invalid tokens
+        // Deactivate invalid tokens silently
         if (isInvalidTokenError(errorCode)) {
             fcmTokenService.deactivateToken(fcmToken);
-            log.info("Deactivated invalid FCM token");
         }
     }
 
@@ -232,10 +213,6 @@ public class FirebasePushService {
                 FirebaseMessagingException ex = response.getException();
                 String errorCode = (ex != null && ex.getMessagingErrorCode() != null) ?
                         ex.getMessagingErrorCode().name() : "UNKNOWN";
-                String errorMessage = ex != null ? ex.getMessage() : "No error message";
-                String tokenPreview = fcmTokens.get(i).substring(0, Math.min(20, fcmTokens.get(i).length()));
-                
-                log.warn("❌ FCM failure [{}]: token={}..., error={}", errorCode, tokenPreview, errorMessage);
                 
                 if (isInvalidTokenError(errorCode)) {
                     invalidTokens.add(fcmTokens.get(i));
@@ -243,13 +220,9 @@ public class FirebasePushService {
             }
         }
 
-        // Deactivate all invalid tokens
+        // Deactivate all invalid tokens silently
         for (String token : invalidTokens) {
             fcmTokenService.deactivateToken(token);
-        }
-        
-        if (!invalidTokens.isEmpty()) {
-            log.info("Deactivated {} invalid FCM tokens", invalidTokens.size());
         }
     }
 
