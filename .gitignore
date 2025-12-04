@@ -64,3 +64,8 @@ logs/
 .github/workflows/*.local.yml
 # Firebase credentials
 .github/*.json
+
+### Python Virtual Environment ###
+**/.venv/
+**/venv/
+**/__pycache__/
