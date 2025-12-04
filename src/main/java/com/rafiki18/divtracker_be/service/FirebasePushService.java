@@ -69,7 +69,7 @@ public class FirebasePushService {
             return 0;
         }
 
-        log.debug("FCM multicast: type={}, recipients={}", notification.getType(), tokens.size());
+        log.info("📤 FCM: Enviando {} a {} dispositivos", notification.getType(), tokens.size());
 
         List<String> fcmTokens = tokens.stream()
                 .map(UserFcmToken::getFcmToken)
@@ -129,6 +129,7 @@ public class FirebasePushService {
                     fcmTokenService.markTokenAsUsed(fcmTokens.get(i));
                 }
             }
+            log.info("✅ FCM: {} enviados, {} fallidos", response.getSuccessCount(), response.getFailureCount());
             return response.getSuccessCount();
         } catch (FirebaseMessagingException e) {
             log.error("Failed to send batch notification: {}", e.getMessage());

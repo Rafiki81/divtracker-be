@@ -271,6 +271,7 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
             tick.setReceivedAt(Instant.now());
             
             marketPriceTickRepository.save(tick);
+            log.info("📈 Finnhub: {} ${}", ticker, price);
 
             // 2. Update instrument_fundamentals
             var fundamentals = fundamentalsOpt.get();
@@ -291,6 +292,7 @@ public class FinnhubWebSocketClient extends TextWebSocketHandler {
             if (pushNotificationService != null && shouldSendNotification(ticker)) {
                 BigDecimal changePercent = fundamentals.getDailyChangePercent();
                 pushNotificationService.sendPriceUpdateNotifications(ticker, price, oldPrice, changePercent);
+                log.info("🔔 Notificación: {} ${} ({}%)", ticker, price, changePercent);
             }
             
         } catch (Exception e) {
